@@ -1,0 +1,48 @@
+import { NextRequest } from 'next/server'
+
+export const runtime = 'edge'
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+
+    // Forward the request to the Python backend
+    const response = await fetch('http://localhost:8000/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to get response from backend')
+    }
+
+    // Create a TransformStream to forward the streaming response
+    const { readable, writable } = new TransformStream()
+    
+    // Forward the stream from Python backend to client
+    response.body?.pipeTo(writable)
+
+    // Return the readable stream to the client
+    return new Response(readable, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    })
+  } catch (error) {
+    console.error('Error in chat API:', error)
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+  }
+}
