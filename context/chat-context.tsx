@@ -12,6 +12,7 @@ import {
   getSettings,
   updateSettings,
 } from "@/app/actions/chat-actions"
+import { v4 as uuidv4 } from "uuid"
 
 // Local storage key
 const SETTINGS_CACHE_KEY = "chat_app_settings"
@@ -160,6 +161,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }
 
   const sendMessage = async (content: string) => {
+    // Don't process empty or undefined content
+    if (!content || content === "") {
+      return;
+    }
+
     if (!currentChat) {
       const newChat = await createNewChat()
       const userMessage: Omit<ChatMessage, "id" | "createdAt"> = {
@@ -168,6 +174,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       }
 
       const updatedChat = await addMessageToChat(newChat.id, userMessage)
+      if (!updatedChat) {
+        // If message wasn't added (empty/undefined content), delete the new chat
+        await deleteChat(newChat.id)
+        return;
+      }
+      
       if (updatedChat) {
         setCurrentChat(updatedChat)
 
@@ -209,15 +221,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             content: "",
           }
 
-          // Create temporary message for streaming
-          const tempMessage = await addMessageToChat(newChat.id, assistantMessage)
-          if (!tempMessage) {
-            throw new Error("Failed to create temporary message")
+          // Create a temporary message object for streaming
+          const tempMessage: ChatMessage = {
+            ...assistantMessage,
+            id: uuidv4(),
+            createdAt: new Date().toISOString()
           }
 
-          // Get the ID of the temporary message for updates
-          const tempMessageId = tempMessage.messages[tempMessage.messages.length - 1].id
-          const tempMessageCreatedAt = tempMessage.messages[tempMessage.messages.length - 1].createdAt
+          // Add the temporary message to the current chat state
+          const initialMessages = [...updatedChat.messages, tempMessage]
+          const initialChatState = {
+            ...updatedChat,
+            messages: initialMessages
+          }
+          setCurrentChat(initialChatState)
 
           while (true) {
             const { done, value } = await reader.read()
@@ -233,18 +250,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                   assistantMessage.content += data.content
                   
                   // Update the chat with the modified messages array
-                  const updatedMessages = tempMessage.messages.map(msg => 
-                    msg.id === tempMessageId 
+                  const updatedMessages = initialChatState.messages.map((msg: ChatMessage) => 
+                    msg.id === tempMessage.id 
                       ? { ...msg, content: assistantMessage.content }
                       : msg
                   )
                   
-                  const updatedChat = {
-                    ...tempMessage,
+                  const updatedChatState = {
+                    ...initialChatState,
                     messages: updatedMessages
                   }
                   
-                  setCurrentChat(updatedChat)
+                  setCurrentChat(updatedChatState)
                 } catch (e) {
                   console.error("Error parsing SSE data:", e)
                 }
@@ -270,6 +287,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       }
 
       const updatedChat = await addMessageToChat(currentChat.id, userMessage)
+      if (!updatedChat) {
+        // If message wasn't added (empty/undefined content), return early
+        return;
+      }
+      
       if (updatedChat) {
         setCurrentChat(updatedChat)
 
@@ -311,15 +333,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             content: "",
           }
 
-          // Create temporary message for streaming
-          const tempMessage = await addMessageToChat(currentChat.id, assistantMessage)
-          if (!tempMessage) {
-            throw new Error("Failed to create temporary message")
+          // Create a temporary message object for streaming
+          const tempMessage: ChatMessage = {
+            ...assistantMessage,
+            id: uuidv4(),
+            createdAt: new Date().toISOString()
           }
 
-          // Get the ID of the temporary message for updates
-          const tempMessageId = tempMessage.messages[tempMessage.messages.length - 1].id
-          const tempMessageCreatedAt = tempMessage.messages[tempMessage.messages.length - 1].createdAt
+          // Add the temporary message to the current chat state
+          const initialMessages = [...updatedChat.messages, tempMessage]
+          const initialChatState = {
+            ...updatedChat,
+            messages: initialMessages
+          }
+          setCurrentChat(initialChatState)
 
           while (true) {
             const { done, value } = await reader.read()
@@ -335,18 +362,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                   assistantMessage.content += data.content
                   
                   // Update the chat with the modified messages array
-                  const updatedMessages = tempMessage.messages.map(msg => 
-                    msg.id === tempMessageId 
+                  const updatedMessages = initialChatState.messages.map((msg: ChatMessage) => 
+                    msg.id === tempMessage.id 
                       ? { ...msg, content: assistantMessage.content }
                       : msg
                   )
                   
-                  const updatedChat = {
-                    ...tempMessage,
+                  const updatedChatState = {
+                    ...initialChatState,
                     messages: updatedMessages
                   }
                   
-                  setCurrentChat(updatedChat)
+                  setCurrentChat(updatedChatState)
                 } catch (e) {
                   console.error("Error parsing SSE data:", e)
                 }

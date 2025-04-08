@@ -94,6 +94,11 @@ export async function addMessageToChat(
   chatId: string,
   message: Omit<ChatMessage, "id" | "createdAt">,
 ): Promise<Chat | null> {
+  // Don't save empty or undefined content
+  if (!message.content || message.content.trim() === "") {
+    return null;
+  }
+
   const chat = await getChatById(chatId)
   if (!chat) return null
 
