@@ -219,6 +219,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           let assistantMessage: Omit<ChatMessage, "id" | "createdAt"> = {
             role: "assistant",
             content: "",
+            model: model,
+            provider: provider
           }
 
           // Create a temporary message object for streaming
@@ -272,7 +274,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           // Final update to persist in the database
           await addMessageToChat(newChat.id, {
             role: "assistant",
-            content: assistantMessage.content
+            content: assistantMessage.content,
+            model: model,
+            provider: provider
           })
 
           await loadChats()
@@ -331,6 +335,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           let assistantMessage: Omit<ChatMessage, "id" | "createdAt"> = {
             role: "assistant",
             content: "",
+            model: model,
+            provider: provider
           }
 
           // Create a temporary message object for streaming
@@ -384,7 +390,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           // Final update to persist in the database
           await addMessageToChat(currentChat.id, {
             role: "assistant",
-            content: assistantMessage.content
+            content: assistantMessage.content,
+            model: model,
+            provider: provider
           })
 
           await loadChats()

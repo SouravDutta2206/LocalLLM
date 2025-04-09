@@ -11,6 +11,7 @@ import { ModelSelector } from "@/components/model-selector"
 import { useMobile } from "@/hooks/use-mobile"
 import { useChat } from "@/context/chat-context"
 import { Textarea } from "@/components/ui/textarea"
+import { ArrowUp } from "lucide-react"
 
 export default function ChatInterface() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -44,6 +45,10 @@ export default function ChatInterface() {
     }
   };
 
+  const handleSentenceClick = (sentence: string) => {
+    setInput(sentence);
+  };
+
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -70,17 +75,17 @@ export default function ChatInterface() {
       <div className="flex flex-col flex-1 h-full overflow-y-auto">
         <ChatHeader toggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
 
-        <div className="flex-1 flex flex-col items-center relative">
-          <div className="w-full max-w-3xl h-full flex flex-col">
+        <div className="flex-1 flex flex-col items-center relative bg-background">
+          <div className="w-full max-w-7xl h-full flex flex-col px-4">
             {!currentChat ? (
-              <WelcomeScreen />
+              <WelcomeScreen onSentenceClick={handleSentenceClick} />
             ) : (
               <MessageList messages={currentChat?.messages || []} isLoading={isLoading || isSubmitting} />
             )}
           </div>
 
-          <div className="w-full bg-gradient-to-t from-background to-transparent py-4 fixed bottom-0">
-            <div className="w-full max-w-3xl mx-auto px-4">
+          <div className="w-full md:w-[calc(100%-256px)] bg-gradient-to-t from-background to-transparent py-4 fixed bottom-0 right-0">
+            <div className="w-full mx-auto px-4 max-w-7xl">
               <form onSubmit={handleSubmit} className="flex flex-col">
                 <div className="flex flex-col bg-background border border-border rounded-lg shadow-lg p-2 relative">
                   <div className="flex flex-col space-y-2">
@@ -89,7 +94,7 @@ export default function ChatInterface() {
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder="Type your message here... (Shift+Enter for new line)"
-                      className="w-full min-h-[40px] max-h-[200px] border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent resize-none"
+                      className="w-full min-h-[40px] max-h-[200px] border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent resize-none text-lg"
                       disabled={isSubmitting}
                     />
                     <div className="flex justify-between items-center">
@@ -98,10 +103,11 @@ export default function ChatInterface() {
                       </div>
                       <Button 
                         type="submit" 
+                        size= "icon"
                         disabled={isSubmitting || !input.trim()}
-                        className="bg-purple-600 hover:bg-purple-700 text-white"
+                        className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl mr-2 mb-2"
                       >
-                        Send
+                        <ArrowUp/>
                       </Button>
                     </div>
                   </div>

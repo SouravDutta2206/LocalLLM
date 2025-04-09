@@ -113,7 +113,7 @@ export async function addMessageToChat(
 
   // Update chat title if it's the first user message
   if (chat.title === "New Chat" && message.role === "user") {
-    chat.title = message.content.slice(0, 15) + (message.content.length > 15 ? "..." : "")
+    chat.title = message.content.slice(0, 50) + (message.content.length > 50 ? "..." : "")
   }
 
   await updateChat(chat)

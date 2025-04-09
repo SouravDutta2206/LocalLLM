@@ -155,7 +155,7 @@ export function ModelSelector() {
     <div className="relative" ref={dropdownRef}>
       <Button
         variant="ghost"
-        className="flex justify-between w-full px-3 py-1.5 text-sm text-gray-200 bg-muted hover:bg-muted/50 rounded-md transition-colors"
+        className="flex justify-between px-3 ml-3 py-1.5 text-sm text-gray-200 bg-transparent hover:bg-muted/50 rounded-md transition-colors"
         onClick={(e) => {
           e.preventDefault();
           setIsOpen(!isOpen);
@@ -167,7 +167,7 @@ export function ModelSelector() {
 
       {isOpen && (
         <div
-          className="absolute bottom-full mb-1 bg-muted text-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto z-50 border border-gray-600"
+          className="absolute bottom-full mb-1 bg-muted text-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto z-50 border border-gray-600"
           style={{
             minWidth: "100%",
             width: maxWidth > 0 ? `${maxWidth}px` : "auto",

@@ -187,13 +187,13 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold">Settings</h1>
       </div>
 
-      <Tabs defaultValue="api-keys" onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
+      <Tabs defaultValue="api-keys" onValueChange={setActiveTab} className="h-full">
+        <TabsList className="mb-4" >
           <TabsTrigger value="api-keys">API Keys</TabsTrigger>
           <TabsTrigger value="Pull Models">Pull Models</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="api-keys">
+        <TabsContent value="api-keys" className="h-full">
 
           <Card>
             <CardHeader>
@@ -304,7 +304,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="Pull Models">
+        <TabsContent value="Pull Models" className="h-full">
           <Card>
             <CardHeader>
               <CardTitle>Pull Models</CardTitle>
@@ -357,18 +357,20 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
 
-      <div className="mt-6 flex items-center justify-between">
-        <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? "Saving..." : "Save Settings"}
-          {!isSaving && <Save className="ml-2 h-4 w-4" />}
-        </Button>
+      {activeTab === "api-keys" && (
+        <div className="mt-6 flex items-center justify-between">
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? "Saving..." : "Save Settings"}
+            {!isSaving && <Save className="ml-2 h-4 w-4" />}
+          </Button>
 
-        {saveMessage && (
-          <p className={`text-sm ${saveMessage.includes("Error") ? "text-destructive" : "text-green-600"}`}>
-            {saveMessage}
-          </p>
-        )}
-      </div>
+          {saveMessage && (
+            <p className={`text-sm ${saveMessage.includes("Error") ? "text-destructive" : "text-green-600"}`}>
+              {saveMessage}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

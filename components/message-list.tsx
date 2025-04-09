@@ -5,6 +5,7 @@ import type { ChatMessage } from "@/types/chat"
 import { cn } from "@/lib/utils"
 import { Loader2 } from "lucide-react"
 import { format } from "date-fns"
+import { MessageContent } from "@/components/message-content"
 
 interface MessageListProps {
   messages: ChatMessage[]
@@ -44,12 +45,19 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
           <div key={message.id} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
             <div
               className={cn(
-                "max-w-[80%] rounded-lg px-4 py-2 break-words",
-                message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted",
+                "max-w-[100%] rounded-lg px-4 py-2 break-words",
+                message.role === "user" 
+                  ? "max-w-[60%] bg-muted text-white" 
+                  : "bg-transparent text-primary-foreground"
               )}
             >
-              <p className="whitespace-pre-wrap break-words">{message.content}</p>
-              <div className="text-xs opacity-50 mt-1">{format(new Date(message.createdAt), "HH:mm")}</div>
+              {message.role === "assistant" && message.model && (
+                <div className="text-xs opacity-100 text-muted-foreground mb-4">
+                  {message.model} ({message.provider || 'unknown'})
+                </div>
+              )}
+              <MessageContent content={message.content} isUser={message.role === "user"} />
+              <div className="text-xs opacity-100 text-muted-foreground mt-4">{format(new Date(message.createdAt), "HH:mm")}</div>
             </div>
           </div>
         ))
@@ -67,4 +75,5 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
     </div>
   )
 }
+
 

@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 0 0% 10%;
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
@@ -14,8 +14,8 @@
     --primary-foreground: 0 0% 98%;
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
     --accent: 240 4.8% 95.9%;
     --accent-foreground: 240 5.9% 10%;
     --destructive: 0 84.2% 60.2%;
@@ -23,13 +23,13 @@
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
     --ring: 240 5.9% 10%;
-    --radius: 0.5rem;
+    --radius: 2rem;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
+    --background: 240 10% 8%;
     --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
+    --card: 0 0% 12%;
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
@@ -57,4 +57,34 @@
     @apply bg-background text-foreground;
   }
 }
+
+pre[class*="language-"] {
+  counter-reset: line;
+}
+
+code[class*="language-"] .line {
+  display: inline-block;
+  width: 100%;
+}
+
+code[class*="language-"] .line:before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: 1em;
+  margin-right: 2em;
+  text-align: right;
+  color: rgb(87 83 78);
+  user-select: none;
+}
+
+.prose pre {
+  margin: 0 !important;
+  background-color: rgb(25, 25, 31) !important;
+}
+
+/* Hide default prism line numbers if any */
+.line-numbers .line-numbers-rows {
+  display: none;
+} 
 

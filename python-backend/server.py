@@ -53,24 +53,24 @@ async def format_chunk(content: str, model: str) -> str:
     }
     return f"data: {json.dumps(data)}\n\n"
 
-def format_conversation_with_prompt(conversation: List[Message]) -> List[Message]:
-    """Format the last user message with the base prompt and return the updated conversation"""
-    if not conversation:
-        return conversation
+# def format_conversation_with_prompt(conversation: List[Message]) -> List[Message]:
+#     """Format the last user message with the base prompt and return the updated conversation"""
+#     if not conversation:
+#         return conversation
     
-    history = conversation[:-1]
-    last_message = conversation[-1]
+#     history = conversation[:-1]
+#     last_message = conversation[-1]
     
-    if last_message.role != "user":
-        return conversation
+#     if last_message.role != "user":
+#         return conversation
     
-    formatted_prompt = base_prompt(last_message.content)
-    formatted_message = Message(
-        role="user",
-        content=formatted_prompt[0]["content"]
-    )
+#     formatted_prompt = base_prompt(last_message.content)
+#     formatted_message = Message(
+#         role="user",
+#         content=formatted_prompt[0]["content"]
+#     )
     
-    return history + [formatted_message]
+#     return history + [formatted_message]
 
 def base_prompt(query_text: str):
 
@@ -121,20 +121,20 @@ def filter_conversation(conversation: List[Message]) -> List[Message]:
 async def chat(request: ChatRequest):
     # Debug print
     request.conversation = filter_conversation(request.conversation)
-    print("\n=== Debug: ChatRequest ===")
-    print(f"Model: {request.model}")
-    print("\nConversation:")
-    for msg in request.conversation:
-        print(f"Role: {msg.role}, Content: {msg.content}")
-    print("=======================\n")
+    # print("\n=== Debug: ChatRequest ===")
+    # print(f"Model: {request.model}")
+    # print("\nConversation:")
+    # for msg in request.conversation:
+    #     print(f"Role: {msg.role}, Content: {msg.content}")
+    # print("=======================\n")
 
     provider = request.model.provider.lower()
     model_name = request.model.name
 
     # Filter out empty messages before any processing
 
-    formatted_conversation = format_conversation_with_prompt(request.conversation)
-    request.conversation = formatted_conversation
+    # formatted_conversation = format_conversation_with_prompt(request.conversation)
+    # request.conversation = formatted_conversation
 
     if provider == "ollama":
         return await chat_ollama(request)

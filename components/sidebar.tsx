@@ -44,11 +44,11 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   return (
     <div className="flex flex-col h-full p-4">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold">AI Chat</h1>
+      <div className={cn("flex flex-row items-center justify-center mt-1 mb-6", isMobile && "justify-between")}>
+        <h1 className={cn("text-xl font-bold justify-center", isMobile && "ml-10 pl-7")}>ChatLLM</h1>
         {isMobile && (
           <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5 " />
           </Button>
         )}
       </div>
@@ -76,7 +76,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                 onClick={() => handleSelectChat(chat.id)}
               >
                 <MessageSquare className="mr-2 h-4 w-4 shrink-0" />
-                <span className="truncate">{chat.title}</span>
+                <span className="truncate">{chat.title = chat.title.slice(0, 15) + (chat.title.length > 15 ? "..." : "")}</span>
               </div>
               {currentChat?.id === chat.id && (
                 <Button

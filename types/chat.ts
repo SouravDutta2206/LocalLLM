@@ -3,6 +3,8 @@ export interface ChatMessage {
   role: "user" | "assistant" | "system"
   content: string
   createdAt: string
+  model?: string
+  provider?: string
 }
 
 export interface Chat {
