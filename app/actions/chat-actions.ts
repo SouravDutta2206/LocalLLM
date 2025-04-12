@@ -7,7 +7,7 @@ import type { Chat, ChatMessage, Settings, ProviderConfig } from "@/types/chat"
 
 const DATA_DIR = path.join(process.cwd(), "data")
 const CHATS_DIR = path.join(DATA_DIR, "chats")
-const SETTINGS_FILE = path.join(process.cwd(), "app_config.json")
+const SETTINGS_FILE = path.join(process.cwd(), "data","app_config.json")
 
 // Ensure directories exist
 async function ensureDirectories() {

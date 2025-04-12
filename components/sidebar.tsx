@@ -13,7 +13,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onClose }: SidebarProps) {
-  const { chats, currentChat, createNewChat, selectChat, deleteCurrentChat } = useChat()
+  const { chats, currentChat, createNewChat, selectChat, deleteChatById } = useChat()
   const isMobile = useMobile()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -78,19 +78,17 @@ export function Sidebar({ onClose }: SidebarProps) {
                 <MessageSquare className="mr-2 h-4 w-4 shrink-0" />
                 <span className="truncate">{chat.title = chat.title.slice(0, 15) + (chat.title.length > 15 ? "..." : "")}</span>
               </div>
-              {currentChat?.id === chat.id && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity ml-2"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    deleteCurrentChat()
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  deleteChatById(chat.id)
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
           ))}
 

@@ -3,7 +3,8 @@
 import { useRef, useEffect, useState } from "react"
 import type { ChatMessage } from "@/types/chat"
 import { cn } from "@/lib/utils"
-import { Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Copy, Loader2, Check } from "lucide-react"
 import { format } from "date-fns"
 import { MessageContent } from "@/components/message-content"
 
@@ -15,6 +16,8 @@ interface MessageListProps {
 export function MessageList({ messages, isLoading }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(false)
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null)
+  const [clicked, setClicked] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -42,14 +45,22 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
         </div>
       ) : (
         messages.map((message) => (
-          <div key={message.id} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
+          <div 
+            key={message.id} 
+            className={cn(
+              "flex flex-col",
+              message.role === "user" ? "items-end" : "items-start" 
+            )}
+          >
             <div
               className={cn(
-                "max-w-[100%] rounded-lg px-4 py-2 break-words",
+                "max-w-[100%] rounded-xl px-4 py-2 break-words",
                 message.role === "user" 
                   ? "max-w-[60%] bg-muted text-white" 
-                  : "bg-transparent text-primary-foreground"
+                  : "bg-transparent w-full text-primary-foreground"
               )}
+              onMouseEnter={() => setHoveredMessageId(message.id)}
+              onMouseLeave={() => setHoveredMessageId(null)}
             >
               {message.role === "assistant" && message.model && (
                 <div className="text-xs opacity-100 text-muted-foreground mb-4">
@@ -59,13 +70,39 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
               <MessageContent content={message.content} isUser={message.role === "user"} />
               <div className="text-xs opacity-100 text-muted-foreground mt-4">{format(new Date(message.createdAt), "HH:mm")}</div>
             </div>
+            
+            <div className={cn("flex mt-1")}>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className={cn(
+                  "h-10 w-10 rounded-xl opacity-0 hover:opacity-100 hover:bg-muted transition-opacity duration-200",
+                  hoveredMessageId === message.id ? "opacity-100" : "opacity-0",
+                  message.role === "assistant" ? "ml-3" : ""
+                )}
+                onClick={() => {navigator.clipboard.writeText(message.content)
+                  setClicked(true)
+                  setTimeout(() => setClicked(false), 1000)
+                }}
+              >
+                {clicked ? (
+                        <>
+                          <Check className="h-10 w-10" />
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-10 w-10" />
+                        </>
+                      )}
+              </Button>
+            </div>
           </div>
         ))
       )}
 
       {isLoading && (
         <div className="flex justify-start">
-          <div className="bg-muted max-w-[80%] rounded-lg px-4 py-2">
+          <div className="bg-muted max-w-[80%] rounded-xl px-4 py-2">
             <Loader2 className="h-4 w-4 animate-spin" />
           </div>
         </div>

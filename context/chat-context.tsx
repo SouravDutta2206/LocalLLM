@@ -28,6 +28,7 @@ interface ChatContextType {
   deleteCurrentChat: () => Promise<void>
   sendMessage: (content: string) => Promise<void>
   updateChatSettings: (settings: Settings) => Promise<void>
+  deleteChatById: (id: string) => Promise<void>
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined)
@@ -143,6 +144,30 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Function to delete a specific chat by its ID
+  const deleteChatById = async (id: string) => {
+    setIsLoading(true)
+    try {
+      await deleteChat(id)
+      const remainingChats = chats.filter((chat) => chat.id !== id)
+      setChats(remainingChats)
+
+      // If the deleted chat was the current one, select the next available chat
+      if (currentChat?.id === id) {
+        if (remainingChats.length > 0) {
+          const nextChat = await getChatById(remainingChats[0].id)
+          setCurrentChat(nextChat)
+        } else {
+          setCurrentChat(null)
+        }
+      }
+    } catch (error) {
+      console.error(`Error deleting chat ${id}:`, error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   // Helper function to get API key for the current model
   const getApiKeyForModel = (modelName: string): { key: string } => {
     // Find provider for the model
@@ -252,18 +277,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                   assistantMessage.content += data.content
                   
                   // Update the chat with the modified messages array
-                  const updatedMessages = initialChatState.messages.map((msg: ChatMessage) => 
-                    msg.id === tempMessage.id 
-                      ? { ...msg, content: assistantMessage.content }
-                      : msg
-                  )
-                  
-                  const updatedChatState = {
-                    ...initialChatState,
-                    messages: updatedMessages
-                  }
-                  
-                  setCurrentChat(updatedChatState)
+                  setCurrentChat(prevChat => {
+                    if (!prevChat) return null;
+                    
+                    const updatedMessages = prevChat.messages.map((msg: ChatMessage) => 
+                      msg.id === tempMessage.id 
+                        ? { ...msg, content: assistantMessage.content }
+                        : msg
+                    );
+
+                    return {
+                      ...prevChat,
+                      messages: updatedMessages,
+                    };
+                  });
                 } catch (e) {
                   console.error("Error parsing SSE data:", e)
                 }
@@ -368,18 +395,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                   assistantMessage.content += data.content
                   
                   // Update the chat with the modified messages array
-                  const updatedMessages = initialChatState.messages.map((msg: ChatMessage) => 
-                    msg.id === tempMessage.id 
-                      ? { ...msg, content: assistantMessage.content }
-                      : msg
-                  )
-                  
-                  const updatedChatState = {
-                    ...initialChatState,
-                    messages: updatedMessages
-                  }
-                  
-                  setCurrentChat(updatedChatState)
+                  setCurrentChat(prevChat => {
+                    if (!prevChat) return null;
+                    
+                    const updatedMessages = prevChat.messages.map((msg: ChatMessage) => 
+                      msg.id === tempMessage.id 
+                        ? { ...msg, content: assistantMessage.content }
+                        : msg
+                    );
+
+                    return {
+                      ...prevChat,
+                      messages: updatedMessages,
+                    };
+                  });
                 } catch (e) {
                   console.error("Error parsing SSE data:", e)
                 }
@@ -447,6 +476,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     deleteCurrentChat,
     sendMessage,
     updateChatSettings,
+    deleteChatById,
   }
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>

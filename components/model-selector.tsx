@@ -5,6 +5,8 @@ import { ChevronUp } from "lucide-react"
 import { useChat } from "@/context/chat-context"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import Image from 'next/image'
+import { Input } from "@/components/ui/input"
 
 interface Model {
   name: string
@@ -21,26 +23,90 @@ interface OllamaListResponse {
   models: OllamaModel[]
 }
 
+interface GroupedModels {
+  [provider: string]: Model[]
+}
+
+// Define interface for logo data
+interface LogoProvider {
+  name: string;
+  path: string;
+}
+
+// Helper function to normalize provider names for display
+const formatProviderName = (provider: string) => {
+  if (provider === "Google Gemini") return "Gemini"
+  if (provider === "HuggingFace") return "HuggingFace"
+  if (provider === "Ollama") return "Ollama"
+  if (provider === "OpenRouter") return "OpenRouter"
+  // Add more cases if needed
+  return provider // Default fallback
+};
+
 export function ModelSelector() {
   const { settings, updateChatSettings } = useChat()
   const [isOpen, setIsOpen] = useState(false)
-  const [models, setModels] = useState<Model[]>([])
+  const [groupedModels, setGroupedModels] = useState<GroupedModels>({})
   const [selectedModel, setSelectedModel] = useState<string>("")
+  const [activeTab, setActiveTab] = useState<string>("")
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const [maxWidth, setMaxWidth] = useState<number>(0)
   const [mounted, setMounted] = useState(false)
+  const [logoMap, setLogoMap] = useState<LogoProvider[]>([]) // State for logo data
+  const [searchTerm, setSearchTerm] = useState("") // State for search term
 
-  // Add mounted state to prevent hydration mismatch
   useEffect(() => {
     setMounted(true)
+    // Fetch logo data
+    const fetchLogos = async () => {
+      try {
+        const response = await fetch('/data/logos.json');
+        if (!response.ok) {
+          console.warn('Failed to fetch logos.json. Status:', response.status);
+          return;
+        }
+        const data = await response.json();
+        setLogoMap(data.providers || []); // Assuming the structure is { providers: [...] }
+      } catch (error) {
+        console.error('Error fetching logos:', error);
+      }
+    };
+    fetchLogos();
   }, [])
 
-  // Fetch Ollama models
-  const fetchOllamaModels = async () => {
+  // Function to find logo path based on name
+  const findLogoPath = (name: string): string | null => {
+    const lowerCaseName = name.toLowerCase();
+    let foundPath: string | null = null;
+
+    for (const logoProvider of logoMap) {
+      if (lowerCaseName.includes(logoProvider.name.toLowerCase())) {
+        foundPath = logoProvider.path;
+        break; // Found a match, stop searching
+      }
+    }
+
+    
+
+
+
+    if (foundPath) {
+      // Ensure path starts with '/' and remove 'public/'
+      let relativePath = foundPath.startsWith('public/') ? foundPath.substring('public/'.length) : foundPath;
+      if (!relativePath.startsWith('/')) {
+        relativePath = '/' + relativePath;
+      }
+      return relativePath;
+    }
+
+    return null; // Return null if no logo found
+  };
+
+  const fetchOllamaModels = async (): Promise<Model[]> => {
     try {
       const response = await fetch('/api/ollama/models');
       if (!response.ok) {
-        throw new Error('Failed to fetch Ollama models');
+        console.warn('Failed to fetch Ollama models, proceeding without them.')
+        return []
       }
       const data: OllamaListResponse = await response.json();
       return data.models.map(model => ({
@@ -53,90 +119,76 @@ export function ModelSelector() {
     }
   };
 
-  // Extract models from settings and calculate max width
   useEffect(() => {
     const loadAllModels = async () => {
       const settingsModels: Model[] = [];
-      
-      // Load models from settings
       settings.providers.forEach((provider) => {
         if (provider.Models) {
-          const modelNames = provider.Models.split(",").map((m) => m.trim())
+          const modelNames = provider.Models.split(",").map((m) => m.trim()).filter(name => name);
           modelNames.forEach((name) => {
-            if (name) {
-              let providerName = provider.Provider
-              if (providerName === "HuggingFace") providerName = "HuggingFace"
-              else if (providerName === "OpenRouter") providerName = "OpenRouter"
-              else if (providerName === "Gemini") providerName = "Google Gemini"
-
-              settingsModels.push({
-                name,
-                provider: providerName,
-              })
-            }
-          })
+            let providerName = provider.Provider
+            // Normalize provider names here if needed, or use formatProviderName
+            if (providerName === "Gemini") providerName = "Google Gemini"
+            settingsModels.push({ name, provider: providerName });
+          });
         }
-      })
+      });
 
-      // Load Ollama models
       const ollamaModels = await fetchOllamaModels();
       const allModels = [...settingsModels, ...ollamaModels];
+      
+      const grouped: GroupedModels = {};
+      allModels.forEach(model => {
+        const providerKey = model.provider || "Unknown"; // Group models without provider under 'Unknown'
+        if (!grouped[providerKey]) {
+          grouped[providerKey] = [];
+        }
+        grouped[providerKey].push(model);
+      });
 
-      setModels(allModels);
+      setGroupedModels(grouped);
 
-      // If there's an activeModel in settings and it's in our model list, select it
+      // Set the initial active tab to the first provider with models
+      const providersWithModels = Object.keys(grouped).filter(p => grouped[p].length > 0);
+      if (providersWithModels.length > 0) {
+        // Find the provider of the currently selected model, if any
+        const currentProvider = allModels.find(m => m.name === settings.activeModel)?.provider;
+        if (currentProvider && grouped[currentProvider]) {
+           setActiveTab(currentProvider);
+        } else {
+           // Fallback to the first provider if the current model's provider isn't found or has no models
+           setActiveTab(providersWithModels[0]);
+        }
+      }
+
       if (settings.activeModel) {
         const modelExists = allModels.some((model) => model.name === settings.activeModel)
         if (modelExists) {
           setSelectedModel(settings.activeModel)
         } else {
           setSelectedModel("")
-        }
-      }
-
-      // Calculate max width for dropdown
-      if (allModels.length > 0) {
-        // Create a temporary span to measure text width
-        const tempSpan = document.createElement("span")
-        tempSpan.style.visibility = "hidden"
-        tempSpan.style.position = "absolute"
-        tempSpan.style.whiteSpace = "nowrap"
-        tempSpan.style.font = "16px sans-serif" // Approximate font size
-        document.body.appendChild(tempSpan)
-
-        // Find the longest model name + provider
-        let maxTextWidth = 0
-        allModels.forEach((model) => {
-          tempSpan.textContent = `${model.name} - ${model.provider}`
-          const width = tempSpan.getBoundingClientRect().width
-          if (width > maxTextWidth) {
-            maxTextWidth = width
+          // If selected model doesn't exist, maybe clear activeTab or set to first provider?
+          if (providersWithModels.length > 0) {
+            setActiveTab(providersWithModels[0]);
           }
-        })
-
-        // Add padding
-        maxTextWidth += 100 // Add some padding
-        setMaxWidth(maxTextWidth)
-
-        // Clean up
-        document.body.removeChild(tempSpan)
+        }
       }
     };
 
     loadAllModels();
   }, [settings]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false)
       }
     }
-
-    document.addEventListener("mousedown", handleClickOutside)
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
     return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
+  }, [isOpen])
 
   const handleSelectModel = (model: Model) => {
     setSelectedModel(model.name)
@@ -148,56 +200,149 @@ export function ModelSelector() {
   }
 
   if (!mounted) {
-    return null
+    return null // Or a placeholder button
   }
 
+  const providers = Object.keys(groupedModels).filter(p => groupedModels[p].length > 0); // Only show tabs for providers with models
+
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative w-full" ref={dropdownRef}>
+      {/* Button to show selected model and toggle dropdown */}
       <Button
         variant="ghost"
-        className="flex justify-between px-3 ml-3 py-1.5 text-sm text-gray-200 bg-transparent hover:bg-muted/50 rounded-md transition-colors"
+        className="flex w-full justify-between px-2 py-1.5 ml-2 mb-1 text-sm text-gray-200 bg-transparent hover:bg-muted/50 rounded-md transition-colors"
         onClick={(e) => {
           e.preventDefault();
           setIsOpen(!isOpen);
         }}
       >
-        <span className="truncate">{selectedModel || "Choose Model"}</span>
-        <ChevronUp className={cn("h-4 w-4 transition-transform", !isOpen && "rotate-180")} />
+        <span className="truncate ml-2">{selectedModel || "Choose Model"}</span>
+        <ChevronUp className={cn("h-4 w-4 transition-transform mr-2 flex-shrink-0", !isOpen && "rotate-180")} />
       </Button>
 
+      {/* Dropdown with Tabs */}
       {isOpen && (
         <div
-          className="absolute bottom-full mb-1 bg-muted text-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto z-50 border border-gray-600"
-          style={{
-            minWidth: "100%",
-            width: maxWidth > 0 ? `${maxWidth}px` : "auto",
-          }}
+          className="absolute bottom-full left-0 right-0 ml-2 mb-1 w-[500px] h-[400px] bg-muted text-muted-foreground rounded-xl shadow-lg z-[60] border border-gray-700 flex overflow-hidden"
         >
-          {models.length > 0 ? (
-            <div className="py-1">
-              {models.map((model, index) => (
-                <div
-                  key={`${model.name}-${model.provider}-${index}`}
-                  role="button"
-                  tabIndex={0}
-                  className="flex w-full px-3 py-2 text-left hover:bg-gray-800 focus:outline-none focus:bg-gray-800 whitespace-nowrap text-sm cursor-pointer"
-                  onClick={() => handleSelectModel(model)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleSelectModel(model);
+          {/* Left Side: Container for Search + List */}          
+          <div className="flex-1 flex flex-col bg-muted max-w-[72%]"> {/* flex-1 takes width, flex-col stacks items */}
+            {/* Search Bar (Stays at top) */}            
+            <div className="p-2 border-b border-gray-700 flex-shrink-0">
+              <Input 
+                placeholder="Search models..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-[#35373c] border-gray-600 focus:ring-blue-500 focus:border-blue-500 text-gray-100"
+              />
+            </div>
+
+            {/* Scrollable Model List Area */}            
+            <div className="flex-1 overflow-y-auto"> {/* flex-1 takes height, scrollable */}              
+              {activeTab && groupedModels[activeTab] ? (
+                groupedModels[activeTab]
+                  .filter(model => 
+                    model.name.toLowerCase().includes(searchTerm.toLowerCase())
+                  )
+                  .map((model, index) => { 
+                    let logoPath = findLogoPath(model.name);
+                    if (!logoPath) {
+                      const lowerProvider = model.provider.toLowerCase();
+                      if (lowerProvider.includes('google') || lowerProvider.includes('gemini')) {
+                        logoPath = '/google.svg';
+                      } else if (lowerProvider.includes('ollama')) {
+                        logoPath = '/ollama.svg';
+                      } else if (lowerProvider.includes('huggingface')) {
+                        logoPath = '/huggingface.svg';
+                      } else if (lowerProvider.includes('openrouter')) {
+                        logoPath = '/openrouter.svg';
+                      } else {
+                        logoPath = null;
+                      }
+                      
                     }
+                    return (
+                      <div
+                        key={`${model.name}-${index}`}
+                        role="button"
+                        tabIndex={0}
+                        className={cn(
+                          "flex items-center w-full px-4 py-3 text-left text-sm cursor-pointer",
+                          selectedModel === model.name ? "bg-[#3f4146]" : "hover:bg-[#35373c]"
+                        )}
+                        onClick={() => handleSelectModel(model)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleSelectModel(model);
+                          }
+                        }}
+                      >
+                        {logoPath && (
+                          <Image 
+                            src={logoPath} 
+                            alt={`${model.name} logo`} 
+                            width={16} 
+                            height={16} 
+                            className="mr-2 flex-shrink-0"
+                          />
+                        )}
+                        <div className="font-medium text-gray-100 truncate">{model.name}</div>
+                      </div>
+                    );
+                  })
+              ) : (
+                <div className="p-4 text-center text-gray-400">Select a provider tab.</div>
+              )}
+            </div> {/* End Scrollable Model List Area */}            
+          </div> {/* End Left Side */}          
+
+          {/* Right Side: Provider Tabs */}          
+          <div className="w-35 flex-shrink-0 bg-[#1e1f22] border-l border-gray-700 overflow-y-auto">
+            {providers.map(provider => {
+              // Hardcode provider logo paths
+              let providerLogoPath: string | null = null;
+              const lowerProvider = provider.toLowerCase();
+              if (lowerProvider.includes('google') || lowerProvider.includes('gemini')) {
+                providerLogoPath = '/google.svg'; // Assuming gemini.svg exists in public/
+              } else if (lowerProvider.includes('ollama')) {
+                providerLogoPath = '/ollama.svg'; // Assuming ollama.svg exists in public/
+              } else if (lowerProvider.includes('huggingface')) {
+                providerLogoPath = '/huggingface.svg'; // Assuming huggingface.svg exists in public/
+              } else if (lowerProvider.includes('openrouter')) {
+                providerLogoPath = '/openrouter.svg'; // Assuming openrouter.svg exists in public/
+              }
+              // Add more providers here if needed
+
+              return (
+                <button
+                  key={provider}
+                  className={cn(
+                    "w-full px-3 py-2.5 text-left text-sm font-medium flex items-center",
+                    activeTab === provider
+                      ? "bg-[#35373c] text-white"
+                      : "text-gray-400 hover:bg-[#2b2d31] hover:text-gray-200"
+                  )}
+                  onClick={() => {
+                    setActiveTab(provider)
+                    setSearchTerm("") // Reset search term on tab change
                   }}
                 >
-                  <span>
-                    {model.name} - {model.provider}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="px-3 py-2 text-gray-400 text-sm">No models available</div>
-          )}
+                  {/* Render logo if path exists */}
+                  {providerLogoPath && (
+                    <Image 
+                      src={providerLogoPath} 
+                      alt={`${provider} logo`} 
+                      width={16} 
+                      height={16} 
+                      className="mr-2 flex-shrink-0"
+                    />
+                  )}
+                  {formatProviderName(provider)}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

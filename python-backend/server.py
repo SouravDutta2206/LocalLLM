@@ -72,34 +72,34 @@ async def format_chunk(content: str, model: str) -> str:
     
 #     return history + [formatted_message]
 
-def base_prompt(query_text: str):
+# def base_prompt(query_text: str):
 
-    prompt = [
-        {
-            "role" : "user",
-            "content" : re.sub(r"[^\S\n]+", " ", f'''You are an AI assistant designed to provide detailed and informative answers to user questions. Your goal is to analyze the question, draw upon your vast knowledge base, and formulate a comprehensive, well-structured response.
-                        User Question: {query_text}
-                        Important Instruction to follow strictly-
+#     prompt = [
+#         {
+#             "role" : "user",
+#             "content" : re.sub(r"[^\S\n]+", " ", f'''You are an AI assistant designed to provide detailed and informative answers to user questions. Your goal is to analyze the question, draw upon your vast knowledge base, and formulate a comprehensive, well-structured response.
+#                         User Question: {query_text}
+#                         Important Instruction to follow strictly-
                         
-                        To answer the question:
-                        1. Thoroughly analyze the question, identifying key information and its underlying intent.
-                        2. Organize your thoughts and plan your response to ensure a logical flow of information and a clear articulation of your understanding.
-                        3. Formulate a detailed answer that directly addresses the question, drawing upon your extensive knowledge and reasoning capabilities.
-                        4. Ensure your answer is comprehensive, covering all relevant aspects and perspectives.
-                        5. Acknowledge any limitations in your knowledge or understanding, and suggest avenues for further exploration if appropriate.
+#                         To answer the question:
+#                         1. Thoroughly analyze the question, identifying key information and its underlying intent.
+#                         2. Organize your thoughts and plan your response to ensure a logical flow of information and a clear articulation of your understanding.
+#                         3. Formulate a detailed answer that directly addresses the question, drawing upon your extensive knowledge and reasoning capabilities.
+#                         4. Ensure your answer is comprehensive, covering all relevant aspects and perspectives.
+#                         5. Acknowledge any limitations in your knowledge or understanding, and suggest avenues for further exploration if appropriate.
                         
-                        Format your response as follows:
-                        1. Use clear, concise, and accurate language.
-                        2. Organize your answer into paragraphs for readability and a clear progression of ideas.
-                        3. Use bullet points or numbered lists where appropriate to break down complex information or present a series of related points.
-                        4. If relevant, include any headings or subheadings to structure your response.
-                        5. Ensure proper grammar, punctuation, and spelling throughout your answer.
+#                         Format your response as follows:
+#                         1. Use clear, concise, and accurate language.
+#                         2. Organize your answer into paragraphs for readability and a clear progression of ideas.
+#                         3. Use bullet points or numbered lists where appropriate to break down complex information or present a series of related points.
+#                         4. If relevant, include any headings or subheadings to structure your response.
+#                         5. Ensure proper grammar, punctuation, and spelling throughout your answer.
                         
-                        Important: Base your entire response solely on the information provided in the context. Do not include any external knowledge or assumptions not present in the given text.''')
-        }
-    ]
+#                         Important: Base your entire response solely on the information provided in the context. Do not include any external knowledge or assumptions not present in the given text.''')
+#         }
+#     ]
 
-    return prompt
+#     return prompt
 
 def filter_conversation(conversation: List[Message]) -> List[Message]:
     """Filter out empty or invalid messages from the conversation."""

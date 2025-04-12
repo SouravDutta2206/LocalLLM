@@ -1,0 +1,69 @@
+{
+	"providers" : [
+		{
+			"name" : "claude",
+			"path" : "public/anthropic.svg"
+		},
+		{
+			"name" : "deepseek",
+			"path" : "public/deepseek.svg"
+		},
+		{
+			"name" : "gemini",
+			"path" : "public/gemini.svg"
+		},
+		{
+			"name" : "gemma",
+			"path" : "public/gemma.svg"
+		},
+		{
+			"name" : "google",
+			"path" : "public/google.svg"
+		},
+		{
+			"name" : "grok",
+			"path" : "public/grok.svg"
+		},
+		{
+			"name" : "huggingface",
+			"path" : "public/huggingface.svg"
+		},
+		{
+			"name" : "llama",
+			"path" : "public/meta.svg"
+		},
+		{
+			"name" : "phi",
+			"path" : "public/microsoft.svg"
+		},
+		{
+			"name" : "mistral",
+			"path" : "public/mistral.svg"
+		},
+		{
+			"name" : "mixtral",
+			"path" : "public/mistral.svg"
+		},
+		{
+			"name" : "ollama",
+			"path" : "public/ollama.svg"
+		},
+		{
+			"name" : "openrouter",
+			"path" : "public/openrouter.svg"
+		},
+		{
+			"name" : "qwen",
+			"path" : "public/qwen.svg"
+		},
+		{
+			"name" : "moonshotai",
+			"path" : "public/moonshot.svg"
+		},
+		{
+			"name" : "kimi",
+			"path" : "public/moonshot.svg"
+		}
+
+	]
+}
