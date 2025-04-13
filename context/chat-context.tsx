@@ -11,6 +11,7 @@ import {
   addMessageToChat,
   getSettings,
   updateSettings,
+  updateChat,
 } from "@/app/actions/chat-actions"
 import { v4 as uuidv4 } from "uuid"
 
@@ -29,6 +30,7 @@ interface ChatContextType {
   sendMessage: (content: string) => Promise<void>
   updateChatSettings: (settings: Settings) => Promise<void>
   deleteChatById: (id: string) => Promise<void>
+  editAndResendMessage: (messageIdToEdit: string, newContent: string) => Promise<void>
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined)
@@ -465,6 +467,47 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Function to handle editing and resending a message
+  const editAndResendMessage = async (messageIdToEdit: string, newContent: string) => {
+    if (!currentChat || !newContent) return;
+
+    setIsLoading(true); // Indicate loading state
+
+    try {
+      const messageIndex = currentChat.messages.findIndex(msg => msg.id === messageIdToEdit);
+
+      if (messageIndex === -1) {
+        console.error("Message to edit not found:", messageIdToEdit);
+        return;
+      }
+
+      // 1. Truncate messages array locally
+      const truncatedMessages = currentChat.messages.slice(0, messageIndex);
+
+      // 2. Update local state immediately for UI feedback
+      const truncatedChat = { ...currentChat, messages: truncatedMessages };
+      setCurrentChat(truncatedChat);
+
+      // 3. Persist the truncated chat (overwrite the file)
+      await updateChat(truncatedChat);
+
+      // 4. Send the new message (this will add it and trigger backend response)
+      // The sendMessage function handles adding the user message and calling the API
+      await sendMessage(newContent);
+
+      // Reload chats might be needed if sendMessage doesn't fully update the list
+      // await loadChats();
+    } catch (error) {
+      console.error("Error editing message:", error);
+      // Optional: Reload state from disk to revert potential partial UI changes
+      if (currentChat) {
+         await selectChat(currentChat.id);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value = {
     chats,
     currentChat,
@@ -477,6 +520,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     sendMessage,
     updateChatSettings,
     deleteChatById,
+    editAndResendMessage,
   }
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>

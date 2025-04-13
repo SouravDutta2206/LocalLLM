@@ -4,9 +4,11 @@ import { useRef, useEffect, useState } from "react"
 import type { ChatMessage } from "@/types/chat"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Copy, Loader2, Check } from "lucide-react"
+import { Copy, Loader2, Check, Pencil } from "lucide-react"
 import { format } from "date-fns"
 import { MessageContent } from "@/components/message-content"
+import { useChat } from "@/context/chat-context"
+import { EditMessageInput } from "./edit-message-input"
 
 interface MessageListProps {
   messages: ChatMessage[]
@@ -15,9 +17,11 @@ interface MessageListProps {
 
 export function MessageList({ messages, isLoading }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const { editAndResendMessage } = useChat()
   const [mounted, setMounted] = useState(false)
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null)
-  const [clicked, setClicked] = useState(false)
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -54,10 +58,12 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
           >
             <div
               className={cn(
-                "max-w-[100%] rounded-xl px-4 py-2 break-words",
+                "max-w-[100%] bg-muted text-white rounded-xl px-4 py-2 break-words",
                 message.role === "user" 
-                  ? "max-w-[60%] bg-muted text-white" 
-                  : "bg-transparent w-full text-primary-foreground"
+                  ? editingMessageId === message.id 
+                    ? "w-full"
+                    : "w-fit"
+                  : "bg-transparent"
               )}
               onMouseEnter={() => setHoveredMessageId(message.id)}
               onMouseLeave={() => setHoveredMessageId(null)}
@@ -67,34 +73,61 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
                   {message.model} ({message.provider || 'unknown'})
                 </div>
               )}
-              <MessageContent content={message.content} isUser={message.role === "user"} />
-              <div className="text-xs opacity-100 text-muted-foreground mt-4">{format(new Date(message.createdAt), "HH:mm")}</div>
+              {editingMessageId === message.id ? (
+                <EditMessageInput 
+                  initialContent={message.content}
+                  messageId={message.id}
+                  onSave={(id: string, newContent: string) => {
+                    editAndResendMessage(id, newContent)
+                    setEditingMessageId(null)
+                  }}
+                  onCancel={() => setEditingMessageId(null)}
+                />
+              ) : (
+                <MessageContent content={message.content} isUser={message.role === "user"} />
+              )}
+              {editingMessageId !== message.id && (
+                <div className="text-xs opacity-100 text-muted-foreground mt-4">{format(new Date(message.createdAt), "HH:mm")}</div>
+              )}
             </div>
             
-            <div className={cn("flex mt-1")}>
+            <div className={cn("flex items-center mt-1 space-x-1")}>
               <Button 
                 variant="ghost" 
                 size="icon" 
                 className={cn(
                   "h-10 w-10 rounded-xl opacity-0 hover:opacity-100 hover:bg-muted transition-opacity duration-200",
-                  hoveredMessageId === message.id ? "opacity-100" : "opacity-0",
+                  (hoveredMessageId === message.id || copiedMessageId === message.id) ? "opacity-100" : "opacity-0",
                   message.role === "assistant" ? "ml-3" : ""
                 )}
-                onClick={() => {navigator.clipboard.writeText(message.content)
-                  setClicked(true)
-                  setTimeout(() => setClicked(false), 1000)
+                onClick={() => {
+                  navigator.clipboard.writeText(message.content)
+                  setCopiedMessageId(message.id)
+                  setTimeout(() => setCopiedMessageId(null), 1000)
                 }}
               >
-                {clicked ? (
-                        <>
-                          <Check className="h-10 w-10" />
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-10 w-10" />
-                        </>
-                      )}
+                {copiedMessageId === message.id ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
               </Button>
+
+              {message.role === 'user' && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className={cn(
+                    "h-10 w-10 rounded-xl opacity-0 hover:opacity-100 hover:bg-muted transition-opacity duration-200",
+                    hoveredMessageId === message.id ? "opacity-100" : "opacity-0"
+                  )}
+                  onClick={() => {
+                    setEditingMessageId(message.id)
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
         ))
