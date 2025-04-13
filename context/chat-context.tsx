@@ -31,6 +31,7 @@ interface ChatContextType {
   updateChatSettings: (settings: Settings) => Promise<void>
   deleteChatById: (id: string) => Promise<void>
   editAndResendMessage: (messageIdToEdit: string, newContent: string) => Promise<void>
+  deleteMessagePair: (messageIdToDelete: string) => Promise<void>
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined)
@@ -508,6 +509,61 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Function to delete a message and its pair (user+assistant)
+  const deleteMessagePair = async (messageIdToDelete: string) => {
+    if (!currentChat) return;
+
+    setIsLoading(true);
+    try {
+      const messages = currentChat.messages;
+      const messageIndex = messages.findIndex(msg => msg.id === messageIdToDelete);
+
+      if (messageIndex === -1) {
+        console.error("Message to delete not found:", messageIdToDelete);
+        return;
+      }
+
+      const messageToDelete = messages[messageIndex];
+      let indicesToRemove = new Set<number>();
+
+      if (messageToDelete.role === 'user') {
+        // Delete this user message and the next one (if it's an assistant)
+        indicesToRemove.add(messageIndex);
+        if (messageIndex + 1 < messages.length && messages[messageIndex + 1].role === 'assistant') {
+          indicesToRemove.add(messageIndex + 1);
+        }
+      } else if (messageToDelete.role === 'assistant') {
+        // Delete this assistant message and the previous one (if it's a user)
+        indicesToRemove.add(messageIndex);
+        if (messageIndex - 1 >= 0 && messages[messageIndex - 1].role === 'user') {
+          indicesToRemove.add(messageIndex - 1);
+        }
+      }
+
+      if (indicesToRemove.size === 0) {
+        // Should not happen in normal flow, but as a fallback, remove only the target message
+        console.warn("Could not find pair for message, deleting only target:", messageIdToDelete);
+        indicesToRemove.add(messageIndex);
+      }
+
+      // Create new messages array excluding the ones to be removed
+      const newMessages = messages.filter((_, index) => !indicesToRemove.has(index));
+
+      // Update local state and persist
+      const updatedChat = { ...currentChat, messages: newMessages };
+      setCurrentChat(updatedChat);
+      await updateChat(updatedChat);
+    } catch (error) {
+      console.error("Error deleting message pair:", error);
+      // Optional: Revert UI changes on error by reloading
+      if (currentChat) {
+        await selectChat(currentChat.id);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value = {
     chats,
     currentChat,
@@ -521,6 +577,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     updateChatSettings,
     deleteChatById,
     editAndResendMessage,
+    deleteMessagePair,
   }
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>

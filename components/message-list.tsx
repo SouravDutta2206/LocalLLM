@@ -4,7 +4,7 @@ import { useRef, useEffect, useState } from "react"
 import type { ChatMessage } from "@/types/chat"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Copy, Loader2, Check, Pencil } from "lucide-react"
+import { Copy, Loader2, Check, Pencil, Trash2 } from "lucide-react"
 import { format } from "date-fns"
 import { MessageContent } from "@/components/message-content"
 import { useChat } from "@/context/chat-context"
@@ -17,7 +17,7 @@ interface MessageListProps {
 
 export function MessageList({ messages, isLoading }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const { editAndResendMessage } = useChat()
+  const { editAndResendMessage, deleteMessagePair } = useChat()
   const [mounted, setMounted] = useState(false)
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
@@ -63,7 +63,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
                   ? editingMessageId === message.id 
                     ? "w-full"
                     : "w-fit"
-                  : "bg-transparent"
+                  : "w-full bg-transparent"
               )}
               onMouseEnter={() => setHoveredMessageId(message.id)}
               onMouseLeave={() => setHoveredMessageId(null)}
@@ -96,7 +96,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
                 variant="ghost" 
                 size="icon" 
                 className={cn(
-                  "h-10 w-10 rounded-xl opacity-0 hover:opacity-100 hover:bg-muted transition-opacity duration-200",
+                  "z-50 h-10 w-10 rounded-xl opacity-0 hover:opacity-100 hover:bg-muted transition-opacity duration-200",
                   (hoveredMessageId === message.id || copiedMessageId === message.id) ? "opacity-100" : "opacity-0",
                   message.role === "assistant" ? "ml-3" : ""
                 )}
@@ -118,7 +118,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
                   variant="ghost" 
                   size="icon" 
                   className={cn(
-                    "h-10 w-10 rounded-xl opacity-0 hover:opacity-100 hover:bg-muted transition-opacity duration-200",
+                    "z-50 h-10 w-10 rounded-xl opacity-0 hover:opacity-100 hover:bg-muted transition-opacity duration-200",
                     hoveredMessageId === message.id ? "opacity-100" : "opacity-0"
                   )}
                   onClick={() => {
@@ -128,6 +128,19 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
                   <Pencil className="h-4 w-4" />
                 </Button>
               )}
+
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className={cn(
+                  "z-50 h-10 w-10 rounded-xl opacity-0 hover:opacity-100 hover:bg-muted transition-opacity duration-200",
+                  hoveredMessageId === message.id ? "opacity-100" : "opacity-0"
+                )}
+                onClick={() => deleteMessagePair(message.id)}
+                title="Delete Message Pair"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         ))

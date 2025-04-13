@@ -13,6 +13,7 @@ from openai import OpenAI
 from huggingface_hub import InferenceClient
 import google.generativeai as genai
 import re
+from prompts import gemini_prompt_format
 
 app = FastAPI(
     title="LLM Chat API",
@@ -119,8 +120,10 @@ def filter_conversation(conversation: List[Message]) -> List[Message]:
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
-    # Debug print
+
     request.conversation = filter_conversation(request.conversation)
+
+    # Debug print
     # print("\n=== Debug: ChatRequest ===")
     # print(f"Model: {request.model}")
     # print("\nConversation:")
@@ -250,7 +253,7 @@ async def chat_gemini(request: ChatRequest):
                 if chunk.text:
                     yield await format_chunk(chunk.text, request.model.name)
                     await asyncio.sleep(0.01)  # Small delay to ensure proper streaming
-                    
+
         except Exception as e:
             error_data = {"error": str(e)}
             yield f"data: {json.dumps(error_data)}\n\n"
