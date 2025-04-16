@@ -253,20 +253,8 @@ export default function SettingsPage() {
                     onChange={(e) => updateProviderConfig("OpenRouter", "Key", e.target.value)}
                     placeholder="sk-or-v1-...."
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="openrouter-models">Models</Label>
-                  <Input
-                    id="openrouter-models"
-                    type="text"
-                    value={getProviderConfig("OpenRouter").Models}
-                    onChange={(e) => updateProviderConfig("OpenRouter", "Models", e.target.value)}
-                    placeholder="..."
-                  />
                   <p className="text-xs text-muted-foreground">
-                    Input model names, for multiple models use a coma(,) in between the names, the names should be of format
-                    'author name/model name' eg. (mistral/ministral-8b)
+                    Models are automatically loaded from OpenRouter's API
                   </p>
                 </div>
               </div>

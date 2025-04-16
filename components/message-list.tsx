@@ -62,7 +62,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
                 message.role === "user" 
                   ? editingMessageId === message.id 
                     ? "w-full"
-                    : "w-fit"
+                    : "max-w-[60%]"
                   : "w-full bg-transparent"
               )}
               onMouseEnter={() => setHoveredMessageId(message.id)}

@@ -25,5 +25,5 @@ export interface ProviderConfig {
 export interface Settings {
   providers: ProviderConfig[]
   activeModel?: string
+  activeProvider?: string
 }
-

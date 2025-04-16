@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { ChevronUp } from "lucide-react"
+import { ChevronUp, Pin, PinOff } from "lucide-react"
 import { useChat } from "@/context/chat-context"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,18 @@ interface OllamaModel {
 
 interface OllamaListResponse {
   models: OllamaModel[]
+}
+
+interface OpenRouterModel {
+  id: string;
+  name: string;
+}
+
+interface OpenRouterResponse {
+  data: Array<{
+    id: string;
+    name: string;
+  }>;
 }
 
 interface GroupedModels {
@@ -53,9 +65,27 @@ export function ModelSelector() {
   const [mounted, setMounted] = useState(false)
   const [logoMap, setLogoMap] = useState<LogoProvider[]>([]) // State for logo data
   const [searchTerm, setSearchTerm] = useState("") // State for search term
+  const [pinnedModels, setPinnedModels] = useState<string[]>([]) // State for pinned models
 
   useEffect(() => {
     setMounted(true)
+    // Load pinned models from localStorage
+    const storedPinnedModels = localStorage.getItem("pinnedModels")
+    if (storedPinnedModels) {
+      try {
+        const parsedModels = JSON.parse(storedPinnedModels);
+        if (Array.isArray(parsedModels)) {
+          setPinnedModels(parsedModels);
+        } else {
+          console.warn("Invalid pinned models format in localStorage");
+          localStorage.removeItem("pinnedModels"); // Clear invalid data
+        }
+      } catch (error) {
+        console.error("Error parsing pinned models from localStorage:", error);
+        localStorage.removeItem("pinnedModels"); // Clear corrupted data
+      }
+    }
+
     // Fetch logo data
     const fetchLogos = async () => {
       try {
@@ -85,10 +115,6 @@ export function ModelSelector() {
       }
     }
 
-    
-
-
-
     if (foundPath) {
       // Ensure path starts with '/' and remove 'public/'
       let relativePath = foundPath.startsWith('public/') ? foundPath.substring('public/'.length) : foundPath;
@@ -100,6 +126,13 @@ export function ModelSelector() {
 
     return null; // Return null if no logo found
   };
+
+  // Effect to save pinned models to localStorage whenever they change
+  useEffect(() => {
+    if (mounted) { // Only save after initial mount and load
+      localStorage.setItem("pinnedModels", JSON.stringify(pinnedModels));
+    }
+  }, [pinnedModels, mounted]);
 
   const fetchOllamaModels = async (): Promise<Model[]> => {
     try {
@@ -119,23 +152,45 @@ export function ModelSelector() {
     }
   };
 
+  const fetchOpenRouterModels = async (): Promise<Model[]> => {
+    try {
+      const response = await fetch('/data/openrouter_models.json');
+      if (!response.ok) {
+        console.warn('Failed to fetch OpenRouter models, proceeding without them.')
+        return []
+      }
+      const data: OpenRouterResponse = await response.json();
+      return data.data.map(model => ({
+        name: model.id,
+        provider: 'OpenRouter'
+      }));
+    } catch (error) {
+      console.error('Error fetching OpenRouter models:', error);
+      return [];
+    }
+  };
+
   useEffect(() => {
     const loadAllModels = async () => {
       const settingsModels: Model[] = [];
       settings.providers.forEach((provider) => {
-        if (provider.Models) {
+        if (provider.Models && provider.Provider !== "OpenRouter") {  // Skip OpenRouter models from settings
           const modelNames = provider.Models.split(",").map((m) => m.trim()).filter(name => name);
           modelNames.forEach((name) => {
             let providerName = provider.Provider
             // Normalize provider names here if needed, or use formatProviderName
-            if (providerName === "Gemini") providerName = "Google Gemini"
+            if (providerName === "Google Gemini") providerName = "gemini"
             settingsModels.push({ name, provider: providerName });
           });
         }
       });
 
-      const ollamaModels = await fetchOllamaModels();
-      const allModels = [...settingsModels, ...ollamaModels];
+      const [ollamaModels, openRouterModels] = await Promise.all([
+        fetchOllamaModels(),
+        fetchOpenRouterModels()
+      ]);
+      
+      const allModels = [...settingsModels, ...ollamaModels, ...openRouterModels];
       
       const grouped: GroupedModels = {};
       allModels.forEach(model => {
@@ -191,13 +246,29 @@ export function ModelSelector() {
   }, [isOpen])
 
   const handleSelectModel = (model: Model) => {
-    setSelectedModel(model.name)
-    updateChatSettings({
+    setSelectedModel(model.name);
+    const updatedSettings = {
       ...settings,
       activeModel: model.name,
-    })
-    setIsOpen(false)
-  }
+      activeProvider: model.provider
+    };
+    updateChatSettings(updatedSettings);
+    setIsOpen(false);
+  };
+
+  // Function to toggle pin status of a model
+  const handleTogglePin = (modelName: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent selecting the model when clicking the pin
+    setPinnedModels(prevPinned => {
+      if (prevPinned.includes(modelName)) {
+        // Unpin: Remove the model name
+        return prevPinned.filter(name => name !== modelName);
+      } else {
+        // Pin: Add the model name
+        return [...prevPinned, modelName];
+      }
+    });
+  };
 
   if (!mounted) {
     return null // Or a placeholder button
@@ -223,10 +294,10 @@ export function ModelSelector() {
       {/* Dropdown with Tabs */}
       {isOpen && (
         <div
-          className="absolute bottom-full left-0 right-0 ml-2 mb-1 w-[500px] h-[400px] bg-muted text-muted-foreground rounded-xl shadow-lg z-[60] border border-gray-700 flex overflow-hidden"
+          className="absolute bottom-full left-0 right-0 ml-2 mb-1 w-[600px] h-[400px] bg-muted text-muted-foreground rounded-xl shadow-lg z-[60] border border-gray-700 flex overflow-hidden"
         >
           {/* Left Side: Container for Search + List */}          
-          <div className="flex-1 flex flex-col bg-muted max-w-[72%]"> {/* flex-1 takes width, flex-col stacks items */}
+          <div className="flex-1 flex flex-col bg-muted max-w-[80%]"> {/* flex-1 takes width, flex-col stacks items */}
             {/* Search Bar (Stays at top) */}            
             <div className="p-2 border-b border-gray-700 flex-shrink-0">
               <Input 
@@ -239,59 +310,103 @@ export function ModelSelector() {
 
             {/* Scrollable Model List Area */}            
             <div className="flex-1 overflow-y-auto"> {/* flex-1 takes height, scrollable */}              
-              {activeTab && groupedModels[activeTab] ? (
-                groupedModels[activeTab]
-                  .filter(model => 
-                    model.name.toLowerCase().includes(searchTerm.toLowerCase())
-                  )
-                  .map((model, index) => { 
-                    let logoPath = findLogoPath(model.name);
-                    if (!logoPath) {
-                      const lowerProvider = model.provider.toLowerCase();
-                      if (lowerProvider.includes('google') || lowerProvider.includes('gemini')) {
-                        logoPath = '/google.svg';
-                      } else if (lowerProvider.includes('ollama')) {
-                        logoPath = '/ollama.svg';
-                      } else if (lowerProvider.includes('huggingface')) {
-                        logoPath = '/huggingface.svg';
-                      } else if (lowerProvider.includes('openrouter')) {
-                        logoPath = '/openrouter.svg';
-                      } else {
-                        logoPath = null;
-                      }
-                      
+              {activeTab && groupedModels[activeTab] ? (() => {
+                const filteredModels = groupedModels[activeTab].filter(model =>
+                  model.name.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+
+                const pinned = filteredModels
+                  .filter(model => pinnedModels.includes(model.name))
+                  .sort((a, b) => a.name.localeCompare(b.name)); // Sort pinned alphabetically
+
+                const regular = filteredModels.filter(model => !pinnedModels.includes(model.name));
+
+                const renderModelItem = (model: Model, index: number) => {
+                  let logoPath = findLogoPath(model.name);
+                  if (!logoPath) {
+                    const lowerProvider = model.provider.toLowerCase();
+                    if (lowerProvider.includes('google') || lowerProvider.includes('gemini')) {
+                      logoPath = '/google.svg';
+                    } else if (lowerProvider.includes('ollama')) {
+                      logoPath = '/ollama.svg';
+                    } else if (lowerProvider.includes('huggingface')) {
+                      logoPath = '/huggingface.svg';
+                    } else if (lowerProvider.includes('openrouter')) {
+                      logoPath = '/openrouter.svg';
+                    } else {
+                      logoPath = null;
                     }
-                    return (
-                      <div
-                        key={`${model.name}-${index}`}
-                        role="button"
-                        tabIndex={0}
-                        className={cn(
-                          "flex items-center w-full px-4 py-3 text-left text-sm cursor-pointer",
-                          selectedModel === model.name ? "bg-[#3f4146]" : "hover:bg-[#35373c]"
-                        )}
-                        onClick={() => handleSelectModel(model)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            handleSelectModel(model);
-                          }
-                        }}
-                      >
+                  }
+                  const isPinned = pinnedModels.includes(model.name);
+
+                  return (
+                    <div
+                      key={`${model.provider}-${model.name}-${index}`} // More specific key
+                      role="button"
+                      tabIndex={0}
+                      className={cn(
+                        "flex items-center justify-between w-full px-4 py-3 text-left text-sm cursor-pointer group", // Added group for hover effect on button
+                        selectedModel === model.name ? "bg-[#3f4146]" : "hover:bg-[#35373c]"
+                      )}
+                      onClick={() => handleSelectModel(model)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleSelectModel(model);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center overflow-hidden mr-2"> {/* Container for logo and name */}
                         {logoPath && (
-                          <Image 
-                            src={logoPath} 
-                            alt={`${model.name} logo`} 
-                            width={16} 
-                            height={16} 
+                          <Image
+                            src={logoPath}
+                            alt={`${model.name} logo`}
+                            width={16}
+                            height={16}
                             className="mr-2 flex-shrink-0"
                           />
                         )}
                         <div className="font-medium text-gray-100 truncate">{model.name}</div>
                       </div>
-                    );
-                  })
-              ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "h-6 w-6 p-1 text-gray-400 opacity-0 group-hover:opacity-100 focus:opacity-100", // Show on hover/focus
+                          isPinned && "opacity-100 text-blue-400 hover:text-blue-300", // Always show if pinned, different color
+                           !isPinned && "hover:text-gray-200" // Hover color when not pinned
+                        )}
+                        onClick={(e) => handleTogglePin(model.name, e)}
+                        aria-label={isPinned ? "Unpin model" : "Pin model"}
+                      >
+                        {isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  );
+                };
+
+                return (
+                  <>
+                    {pinned.length > 0 && (
+                      <>
+                        <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Pinned</div>
+                        {pinned.map(renderModelItem)}
+                        {regular.length > 0 && <div className="h-px bg-gray-700 my-2 mx-4"></div>} {/* Separator */}
+                      </>
+                    )}
+                    {regular.length > 0 && (
+                       <>
+                        {pinned.length > 0 && <div className="px-4 pt-1 pb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Models</div>}
+                        {regular.map(renderModelItem)}
+                       </>
+                    )}
+                    {filteredModels.length === 0 && searchTerm && (
+                        <div className="p-4 text-center text-gray-400">No models match your search.</div>
+                    )}
+                  </>
+                );
+
+              })() : (
                 <div className="p-4 text-center text-gray-400">Select a provider tab.</div>
               )}
             </div> {/* End Scrollable Model List Area */}            

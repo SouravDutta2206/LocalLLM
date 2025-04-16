@@ -7,13 +7,39 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict
 import asyncio
+import os
 import json
 import ollama
+import requests
+from pathlib import Path
 from openai import OpenAI
 from huggingface_hub import InferenceClient
 import google.generativeai as genai
 import re
-from prompts import gemini_prompt_format
+from utils.prompts import gemini_prompt_format, base_prompt
+
+def openrouter_models_list():
+    try:
+        url = "https://openrouter.ai/api/v1/models"
+        response = requests.get(url)
+        # response.raise_for_status()  # Raise an exception for bad status codes
+
+        # output_file = os.path.join(os.getcwd(), 'data', "openrouter_models.json")
+        output_file = Path.cwd() / 'public' / 'data' / "openrouter_models.json" 
+        # Create data directory if it doesn't exist
+        # os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        
+        if output_file.exists():
+            # Remove the existing file if it exists
+            output_file.unlink()
+            
+        with open(output_file, "w") as file:
+            json.dump(response.json(), file, indent=4)
+        print(f"OpenRouter models list saved to {output_file}")
+    except Exception as e:
+        print(f"Error fetching OpenRouter models: {str(e)}")
+        raise
+
 
 app = FastAPI(
     title="LLM Chat API",
@@ -124,15 +150,18 @@ async def chat(request: ChatRequest):
     request.conversation = filter_conversation(request.conversation)
 
     # Debug print
-    # print("\n=== Debug: ChatRequest ===")
-    # print(f"Model: {request.model}")
-    # print("\nConversation:")
-    # for msg in request.conversation:
-    #     print(f"Role: {msg.role}, Content: {msg.content}")
-    # print("=======================\n")
+   
 
     provider = request.model.provider.lower()
     model_name = request.model.name
+
+    # print("\n=== Debug: ChatRequest ===")
+    print(f"Provider: {provider}")
+    print(f"Model Name: {model_name}")
+    # print("\nConversation:")
+    # for msg in request.conversation:
+    #     print(f"Role: {msg.role}, Content: {msg.content}")
+    
 
     # Filter out empty messages before any processing
 
@@ -214,6 +243,8 @@ async def chat_openrouter(request: ChatRequest):
             for chunk in stream:
                 if chunk and chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
+                    print(content, end='')
+                    print("=======================\n")
                     yield await format_chunk(content, request.model.name)
                     await asyncio.sleep(0.01)  # Small delay to ensure proper streaming
                     
@@ -261,5 +292,8 @@ async def chat_gemini(request: ChatRequest):
     return StreamingResponse(generate(), media_type="text/event-stream")
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    # Uncomment this line to run the function before starting the server
+    openrouter_models_list()
+    if os.path.exists(os.path.join(os.getcwd(), 'data', "openrouter_models.json")):
+        import uvicorn
+        uvicorn.run(app, host="0.0.0.0", port=8000) 

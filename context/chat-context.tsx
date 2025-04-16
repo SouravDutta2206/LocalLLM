@@ -173,7 +173,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   // Helper function to get API key for the current model
   const getApiKeyForModel = (modelName: string): { key: string } => {
-    // Find provider for the model
+    // If we have an activeProvider in settings and it matches the current model, get the key from the provider config
+    if (settings.activeModel === modelName && settings.activeProvider) {
+      const provider = settings.providers.find(p => p.Provider.toLowerCase() === settings.activeProvider?.toLowerCase());
+      if (provider) {
+        return { key: provider.Key };
+      }
+    }
+
+    // Otherwise, try to find provider in the settings
     for (const provider of settings.providers) {
       const models = provider.Models.split(",").map((m) => m.trim())
 
@@ -437,7 +445,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   // Helper function to get provider name for the current model
   const getProviderForModel = (modelName: string): string => {
-    // Find provider for the model
+    // If we have an activeProvider in settings and it matches the current model, use it
+    if (settings.activeModel === modelName && settings.activeProvider) {
+      const provider = settings.activeProvider.toLowerCase();
+      // Normalize Google Gemini to gemini
+      if (provider === "google gemini") return "gemini";
+      return provider;
+    }
+
+    // Otherwise, try to find provider in the settings
     for (const provider of settings.providers) {
       const models = provider.Models.split(",").map((m) => m.trim())
 
@@ -445,7 +461,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         let providerName = provider.Provider.toLowerCase()
         if (providerName === "huggingface") return "huggingface"
         if (providerName === "openrouter") return "openrouter"
-        if (providerName === "gemini") return "gemini"
+        if (providerName === "google gemini") return "gemini"
         if (providerName === "ollama") return "ollama"
       }
     }
