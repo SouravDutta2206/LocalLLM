@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { ChevronUp, Pin, PinOff } from "lucide-react"
+import { ChevronUp, ConstructionIcon, Pin, PinOff } from "lucide-react"
 import { useChat } from "@/context/chat-context"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -25,14 +25,18 @@ interface OllamaListResponse {
 
 interface OpenRouterModel {
   id: string;
-  name: string;
 }
 
 interface OpenRouterResponse {
-  data: Array<{
-    id: string;
-    name: string;
-  }>;
+  data: OpenRouterModel[];
+}
+
+interface GeminiModel {
+  id: string;
+}
+
+interface GeminiResponse {
+  data: GeminiModel[];
 }
 
 interface GroupedModels {
@@ -154,7 +158,7 @@ export function ModelSelector() {
 
   const fetchOpenRouterModels = async (): Promise<Model[]> => {
     try {
-      const response = await fetch('/data/openrouter_models.json');
+      const response = await fetch('/api/openrouter/models');
       if (!response.ok) {
         console.warn('Failed to fetch OpenRouter models, proceeding without them.')
         return []
@@ -170,6 +174,43 @@ export function ModelSelector() {
     }
   };
 
+  const fetchGeminiModels = async (): Promise<Model[]> => {
+    // Get the Gemini API key from settings
+    const geminiProvider = settings.providers.find(p => p.Provider === "Gemini");
+    const apiKey = geminiProvider?.Key;
+
+    if (!apiKey) {
+      console.warn('No Gemini API key found in settings, proceeding without Gemini models.');
+      return [];
+    }
+
+    try {
+      const response = await fetch('/api/gemini/models', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          api_key: apiKey
+        })
+      });
+
+      if (!response.ok) {
+        console.warn('Failed to fetch Gemini models, proceeding without them.');
+        return [];
+      }
+
+      const data: GeminiResponse = await response.json();
+      return data.data.map(model => ({
+        name: model.id,
+        provider: 'Gemini'
+      }));
+    } catch (error) {
+      console.error('Error fetching Gemini models:', error);
+      return [];
+    }
+  };
+
   useEffect(() => {
     const loadAllModels = async () => {
       const settingsModels: Model[] = [];
@@ -178,23 +219,22 @@ export function ModelSelector() {
           const modelNames = provider.Models.split(",").map((m) => m.trim()).filter(name => name);
           modelNames.forEach((name) => {
             let providerName = provider.Provider
-            // Normalize provider names here if needed, or use formatProviderName
-            if (providerName === "Google Gemini") providerName = "gemini"
             settingsModels.push({ name, provider: providerName });
           });
         }
       });
 
-      const [ollamaModels, openRouterModels] = await Promise.all([
+      const [ollamaModels, openRouterModels, geminiModels] = await Promise.all([
         fetchOllamaModels(),
-        fetchOpenRouterModels()
+        fetchOpenRouterModels(),
+        fetchGeminiModels()
       ]);
       
-      const allModels = [...settingsModels, ...ollamaModels, ...openRouterModels];
+      const allModels = [...settingsModels, ...ollamaModels, ...openRouterModels, ...geminiModels];
       
       const grouped: GroupedModels = {};
       allModels.forEach(model => {
-        const providerKey = model.provider || "Unknown"; // Group models without provider under 'Unknown'
+        const providerKey = model.provider || "Unknown";
         if (!grouped[providerKey]) {
           grouped[providerKey] = [];
         }
@@ -453,7 +493,7 @@ export function ModelSelector() {
                       className="mr-2 flex-shrink-0"
                     />
                   )}
-                  {formatProviderName(provider)}
+                  {provider}
                 </button>
               );
             })}

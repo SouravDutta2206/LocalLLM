@@ -467,7 +467,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Default to ollama if no match
-    return "ollama"
+    return "No Provider Found"
   }
 
   const updateChatSettings = async (newSettings: Settings) => {

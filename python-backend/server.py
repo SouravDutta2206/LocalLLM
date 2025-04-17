@@ -17,28 +17,7 @@ from huggingface_hub import InferenceClient
 import google.generativeai as genai
 import re
 from utils.prompts import gemini_prompt_format, base_prompt
-
-def openrouter_models_list():
-    try:
-        url = "https://openrouter.ai/api/v1/models"
-        response = requests.get(url)
-        # response.raise_for_status()  # Raise an exception for bad status codes
-
-        # output_file = os.path.join(os.getcwd(), 'data', "openrouter_models.json")
-        output_file = Path.cwd() / 'public' / 'data' / "openrouter_models.json" 
-        # Create data directory if it doesn't exist
-        # os.makedirs(os.path.dirname(output_file), exist_ok=True)
-        
-        if output_file.exists():
-            # Remove the existing file if it exists
-            output_file.unlink()
-            
-        with open(output_file, "w") as file:
-            json.dump(response.json(), file, indent=4)
-        print(f"OpenRouter models list saved to {output_file}")
-    except Exception as e:
-        print(f"Error fetching OpenRouter models: {str(e)}")
-        raise
+from utils.gemini_list import get_gemini_models_list
 
 
 app = FastAPI(
@@ -72,6 +51,17 @@ class ChatResponse(BaseModel):
     response: str
     model: str
 
+class GeminiModelInfo(BaseModel):
+    id: str
+
+class GeminiModelsRequest(BaseModel):
+    api_key: str
+
+
+class GeminiModelsResponse(BaseModel):
+    data: List[GeminiModelInfo]
+
+
 async def format_chunk(content: str, model: str) -> str:
     """Format a chunk for SSE streaming"""
     data = {
@@ -99,34 +89,6 @@ async def format_chunk(content: str, model: str) -> str:
     
 #     return history + [formatted_message]
 
-# def base_prompt(query_text: str):
-
-#     prompt = [
-#         {
-#             "role" : "user",
-#             "content" : re.sub(r"[^\S\n]+", " ", f'''You are an AI assistant designed to provide detailed and informative answers to user questions. Your goal is to analyze the question, draw upon your vast knowledge base, and formulate a comprehensive, well-structured response.
-#                         User Question: {query_text}
-#                         Important Instruction to follow strictly-
-                        
-#                         To answer the question:
-#                         1. Thoroughly analyze the question, identifying key information and its underlying intent.
-#                         2. Organize your thoughts and plan your response to ensure a logical flow of information and a clear articulation of your understanding.
-#                         3. Formulate a detailed answer that directly addresses the question, drawing upon your extensive knowledge and reasoning capabilities.
-#                         4. Ensure your answer is comprehensive, covering all relevant aspects and perspectives.
-#                         5. Acknowledge any limitations in your knowledge or understanding, and suggest avenues for further exploration if appropriate.
-                        
-#                         Format your response as follows:
-#                         1. Use clear, concise, and accurate language.
-#                         2. Organize your answer into paragraphs for readability and a clear progression of ideas.
-#                         3. Use bullet points or numbered lists where appropriate to break down complex information or present a series of related points.
-#                         4. If relevant, include any headings or subheadings to structure your response.
-#                         5. Ensure proper grammar, punctuation, and spelling throughout your answer.
-                        
-#                         Important: Base your entire response solely on the information provided in the context. Do not include any external knowledge or assumptions not present in the given text.''')
-#         }
-#     ]
-
-#     return prompt
 
 def filter_conversation(conversation: List[Message]) -> List[Message]:
     """Filter out empty or invalid messages from the conversation."""
@@ -144,13 +106,29 @@ def filter_conversation(conversation: List[Message]) -> List[Message]:
         if is_valid_content(msg.content)
     ]
 
+@app.post("/api/gemini/models")
+async def get_gemini_models(request: GeminiModelsRequest):
+    try:
+        # Configure Gemini with the provided API key
+        # genai.configure(api_key=request.api_key)
+        
+        # Get available models
+        models = get_gemini_models_list(Gemini_KEY=request.api_key)
+        
+        # Format response to match OpenRouter format
+        response = GeminiModelsResponse(
+            data=[GeminiModelInfo(id=model) for model in models]
+        )
+        
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
 
+    # Filter out empty messages before any processing
     request.conversation = filter_conversation(request.conversation)
-
-    # Debug print
-   
 
     provider = request.model.provider.lower()
     model_name = request.model.name
@@ -162,9 +140,6 @@ async def chat(request: ChatRequest):
     # for msg in request.conversation:
     #     print(f"Role: {msg.role}, Content: {msg.content}")
     
-
-    # Filter out empty messages before any processing
-
     # formatted_conversation = format_conversation_with_prompt(request.conversation)
     # request.conversation = formatted_conversation
 
@@ -292,8 +267,6 @@ async def chat_gemini(request: ChatRequest):
     return StreamingResponse(generate(), media_type="text/event-stream")
 
 if __name__ == "__main__":
-    # Uncomment this line to run the function before starting the server
-    openrouter_models_list()
-    if os.path.exists(os.path.join(os.getcwd(), 'data', "openrouter_models.json")):
-        import uvicorn
-        uvicorn.run(app, host="0.0.0.0", port=8000) 
+
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000) 
