@@ -16,7 +16,7 @@ from openai import OpenAI
 from huggingface_hub import InferenceClient
 import google.generativeai as genai
 import re
-from utils.prompts import gemini_prompt_format, base_prompt
+from utils.prompts import base_prompt
 from utils.gemini_list import get_gemini_models_list
 
 
@@ -70,28 +70,28 @@ async def format_chunk(content: str, model: str) -> str:
     }
     return f"data: {json.dumps(data)}\n\n"
 
-# def format_conversation_with_prompt(conversation: List[Message]) -> List[Message]:
-#     """Format the last user message with the base prompt and return the updated conversation"""
-#     if not conversation:
-#         return conversation
+def format_conversation_with_prompt(conversation: List[Message]) -> List[Message]:
+    # Format the last user message with the base prompt and return the updated conversation
+    if not conversation:
+        return conversation
     
-#     history = conversation[:-1]
-#     last_message = conversation[-1]
+    history = conversation[:-1]
+    last_message = conversation[-1]
     
-#     if last_message.role != "user":
-#         return conversation
+    if last_message.role != "user":
+        return conversation
     
-#     formatted_prompt = base_prompt(last_message.content)
-#     formatted_message = Message(
-#         role="user",
-#         content=formatted_prompt[0]["content"]
-#     )
+    formatted_prompt = base_prompt(last_message.content)
+    formatted_message = Message(
+        role="user",
+        content=formatted_prompt[0]["content"]
+    )
     
-#     return history + [formatted_message]
+    return history + [formatted_message]
 
 
 def filter_conversation(conversation: List[Message]) -> List[Message]:
-    """Filter out empty or invalid messages from the conversation."""
+    # Filter out empty or invalid messages from the conversation
     def is_valid_content(content: str) -> bool:
         if content is None:
             return False
@@ -109,13 +109,10 @@ def filter_conversation(conversation: List[Message]) -> List[Message]:
 @app.post("/api/gemini/models")
 async def get_gemini_models(request: GeminiModelsRequest):
     try:
-        # Configure Gemini with the provided API key
-        # genai.configure(api_key=request.api_key)
-        
+
         # Get available models
         models = get_gemini_models_list(Gemini_KEY=request.api_key)
         
-        # Format response to match OpenRouter format
         response = GeminiModelsResponse(
             data=[GeminiModelInfo(id=model) for model in models]
         )
@@ -136,12 +133,12 @@ async def chat(request: ChatRequest):
     # print("\n=== Debug: ChatRequest ===")
     print(f"Provider: {provider}")
     print(f"Model Name: {model_name}")
-    # print("\nConversation:")
-    # for msg in request.conversation:
-    #     print(f"Role: {msg.role}, Content: {msg.content}")
     
-    # formatted_conversation = format_conversation_with_prompt(request.conversation)
-    # request.conversation = formatted_conversation
+    formatted_conversation = format_conversation_with_prompt(request.conversation)
+    request.conversation = formatted_conversation
+    print("\nConversation:")
+    for msg in request.conversation:
+        print(f"Role: {msg.role}, Content: {msg.content}")
 
     if provider == "ollama":
         return await chat_ollama(request)
@@ -218,8 +215,6 @@ async def chat_openrouter(request: ChatRequest):
             for chunk in stream:
                 if chunk and chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
-                    print(content, end='')
-                    print("=======================\n")
                     yield await format_chunk(content, request.model.name)
                     await asyncio.sleep(0.01)  # Small delay to ensure proper streaming
                     

@@ -6,7 +6,10 @@ import { Copy, Check } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypePrismPlus from "rehype-prism-plus"
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
 import "prismjs/themes/prism-tomorrow.css"
+import 'katex/dist/katex.min.css'
 import "@/app/globals.css"
 
 interface MessageContentProps {
@@ -22,8 +25,11 @@ export function MessageContent({ content, isUser }: MessageContentProps) {
   return (
     <div className="prose prose-invert max-w-none">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[[rehypePrismPlus, { ignoreMissing: true, showLineNumbers: true }]]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[
+          [rehypePrismPlus, { ignoreMissing: true, showLineNumbers: true }],
+          rehypeKatex
+        ]}
         components={{
           pre: ({ node, ...props }) => {
             const [copied, setCopied] = useState(false)
