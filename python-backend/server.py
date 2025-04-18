@@ -136,9 +136,9 @@ async def chat(request: ChatRequest):
     
     formatted_conversation = format_conversation_with_prompt(request.conversation)
     request.conversation = formatted_conversation
-    print("\nConversation:")
-    for msg in request.conversation:
-        print(f"Role: {msg.role}, Content: {msg.content}")
+    # print("\nConversation:")
+    # for msg in request.conversation:
+    #     print(f"Role: {msg.role}, Content: {msg.content}")
 
     if provider == "ollama":
         return await chat_ollama(request)

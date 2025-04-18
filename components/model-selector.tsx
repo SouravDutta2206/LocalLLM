@@ -324,7 +324,12 @@ export function ModelSelector() {
         className="flex w-full justify-between px-2 py-1.5 ml-2 mb-1 text-sm text-gray-200 bg-transparent hover:bg-muted/50 rounded-md transition-colors"
         onClick={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           setIsOpen(!isOpen);
+        }}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
         }}
       >
         <span className="truncate ml-2">{selectedModel || "Choose Model"}</span>
@@ -335,6 +340,14 @@ export function ModelSelector() {
       {isOpen && (
         <div
           className="absolute bottom-full left-0 right-0 ml-2 mb-1 w-[600px] h-[400px] bg-muted text-muted-foreground rounded-xl shadow-lg z-[60] border border-gray-700 flex overflow-hidden"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
         >
           {/* Left Side: Container for Search + List */}          
           <div className="flex-1 flex flex-col bg-muted max-w-[80%]"> {/* flex-1 takes width, flex-col stacks items */}
@@ -478,9 +491,15 @@ export function ModelSelector() {
                       ? "bg-[#35373c] text-white"
                       : "text-gray-400 hover:bg-[#2b2d31] hover:text-gray-200"
                   )}
-                  onClick={() => {
-                    setActiveTab(provider)
-                    setSearchTerm("") // Reset search term on tab change
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setActiveTab(provider);
+                    setSearchTerm(""); // Reset search term on tab change
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                   }}
                 >
                   {/* Render logo if path exists */}

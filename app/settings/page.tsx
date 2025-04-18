@@ -9,13 +9,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { toast } from "sonner"
 import type { Settings, ProviderConfig } from "@/types/chat"
-import { ArrowLeft, Save, Download } from "lucide-react"
+import { ArrowLeft, Save, Download, Plus, Trash2, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { updateSettings, getSettings } from "@/app/actions/chat-actions"
 import { useChat } from "@/context/chat-context"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 // Local storage key
 const SETTINGS_CACHE_KEY = "chat_app_settings"
+
+// Add this right after the SETTINGS_CACHE_KEY constant
+const getModelList = (models: string): string[] => {
+  return models ? models.split(',').filter(model => model.trim()) : [];
+}
 
 export default function SettingsPage() {
   const { updateChatSettings } = useChat()
@@ -29,6 +40,10 @@ export default function SettingsPage() {
   const [isPulling, setIsPulling] = useState(false)
   const [pullProgress, setPullProgress] = useState(0)
   const [activeTab, setActiveTab] = useState("api-keys")
+  
+  // New state for model inputs
+  const [huggingfaceModelInput, setHuggingfaceModelInput] = useState("")
+  const [geminiModelInput, setGeminiModelInput] = useState("")
 
   // Load settings from cache or file on mount
   useEffect(() => {
@@ -177,6 +192,73 @@ export default function SettingsPage() {
     }
   };
 
+  const saveSettingsToSystem = async (newSettings: Settings) => {
+    try {
+      await updateSettings(newSettings)
+      localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(newSettings))
+      updateChatSettings(newSettings)
+    } catch (error) {
+      console.error("Error saving settings:", error)
+      toast.error("Failed to save settings")
+    }
+  }
+
+  const handleAddModel = async (provider: string, modelName: string) => {
+    if (!modelName.trim()) return;
+    
+    const currentConfig = getProviderConfig(provider);
+    const currentModels = getModelList(currentConfig.Models);
+    
+    if (currentModels.includes(modelName.trim())) {
+      toast.error(`Model ${modelName} already exists`);
+      return;
+    }
+    
+    const newModels = [...currentModels, modelName.trim()].join(',');
+    const newSettings = {
+      ...settings,
+      providers: settings.providers.map(p => 
+        p.Provider === provider ? { ...p, Models: newModels } : p
+      )
+    };
+    
+    await saveSettingsToSystem(newSettings);
+    setSettings(newSettings);
+    
+    // Clear input
+    if (provider === "HuggingFace") {
+      setHuggingfaceModelInput("");
+    } else if (provider === "Gemini") {
+      setGeminiModelInput("");
+    }
+    
+    toast.success(`Added model ${modelName}`);
+  }
+
+  const handleRemoveModel = async (provider: string, modelName: string) => {
+    const currentConfig = getProviderConfig(provider);
+    const currentModels = getModelList(currentConfig.Models);
+    const newModels = currentModels.filter(model => model !== modelName).join(',');
+    
+    const newSettings = {
+      ...settings,
+      providers: settings.providers.map(p => 
+        p.Provider === provider ? { ...p, Models: newModels } : p
+      )
+    };
+    
+    await saveSettingsToSystem(newSettings);
+    setSettings(newSettings);
+
+    if (provider === "HuggingFace") {
+      setHuggingfaceModelInput("");
+    } else if (provider === "Gemini") {
+      setGeminiModelInput("");
+    }
+
+    toast.success(`Removed model ${modelName}`);
+  }
+
   return (
     <div className="container max-w-4xl py-8">
       <div className="flex items-center mb-6">
@@ -213,29 +295,87 @@ export default function SettingsPage() {
               <div className="space-y-4 border-t pt-4">
                 <h3 className="text-lg font-medium">HuggingFace Inference API Key</h3>
 
-                <div className="space-y-2">
+                <div className="flex flex-col space-y-4">
                   <Label htmlFor="huggingface-key">Key</Label>
-                  <Input
-                    id="huggingface-key"
-                    type="password"
-                    value={getProviderConfig("HuggingFace").Key}
-                    onChange={(e) => updateProviderConfig("HuggingFace", "Key", e.target.value)}
-                    placeholder="hf_abc...."
-                  />
+                  <div className="flex space-x-2">
+                    <Input
+                      id="huggingface-key"
+                      type="password"
+                      value={getProviderConfig("HuggingFace").Key}
+                      onChange={(e) => updateProviderConfig("HuggingFace", "Key", e.target.value)}
+                      placeholder="hf_abc...."
+                      className="rounded-xl flex-1 max-w-[80%]"
+                    />
+                    <Button 
+                      onClick={handleSave} disabled={isSaving}
+                      className="w-[20%] min-w-[100px] rounded-xl hover:bg-gray-300"
+                    >
+                      {isSaving ? (
+                        <span className="flex items-center">
+                          Saving
+                        </span>
+                      ) : (
+                        <span className="flex items-center">
+                          <Save className="mr-2 h-4 w-4" />
+                          Save
+                        </span>
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="huggingface-models">Models</Label>
-                  <Input
-                    id="huggingface-models"
-                    type="text"
-                    value={getProviderConfig("HuggingFace").Models}
-                    onChange={(e) => updateProviderConfig("HuggingFace", "Models", e.target.value)}
-                    placeholder="..."
-                  />
+                  <div className="flex space-x-2">
+                    <div className="flex-1 flex space-x-2">
+                      <Input
+                        id="huggingface-models"
+                        type="text"
+                        value={huggingfaceModelInput}
+                        onChange={(e) => setHuggingfaceModelInput(e.target.value)}
+                        placeholder="author/model-name"
+                        className="rounded-xl"
+                      />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button className='rounded-xl hover:bg-gray-300 w-12'
+                                  size="icon"
+                                  disabled={getModelList(getProviderConfig("HuggingFace").Models).length === 0}
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="flex flex-1 flex-col bottom-full left-0 right-0 w-fit max-h-[400px] bg-[#35373c] rounded-xl shadow-lg border-gray-600 justify-center overflow-hidden">
+                        {getModelList(getProviderConfig("HuggingFace").Models).map((model) => (
+                            <DropdownMenuItem
+                              className="flex flex-1 cursor-pointer bg-[#35373c] hover:bg-[#3f4146] overflow-y-auto truncate rounded-xl group w-full px-4 py-2"
+                              key={model}
+                              onClick={() => setHuggingfaceModelInput(model)}
+                            >
+                              {model}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    <Button
+                      onClick={() => handleAddModel("HuggingFace", huggingfaceModelInput)}
+                      size="icon"
+                      className="rounded-xl hover:bg-gray-300 w-12"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      onClick={() => handleRemoveModel("HuggingFace", huggingfaceModelInput)}
+                      size="icon"
+                      disabled={!huggingfaceModelInput}
+                      className="rounded-xl hover:bg-gray-300 w-12"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Input model names, for multiple models use a coma(,) in between the names, the names should be of format
-                    'author name/model name' eg. (microsoft/phi-4)
+                    Input model names in the format 'author name/model name' (e.g. microsoft/phi-4)
                   </p>
                 </div>
               </div>
@@ -246,13 +386,31 @@ export default function SettingsPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="openrouter-key">Key</Label>
-                  <Input
-                    id="openrouter-key"
-                    type="password"
-                    value={getProviderConfig("OpenRouter").Key}
-                    onChange={(e) => updateProviderConfig("OpenRouter", "Key", e.target.value)}
-                    placeholder="sk-or-v1-...."
-                  />
+                  <div className="flex space-x-2">
+                    <Input
+                      id="openrouter-key"
+                      type="password"
+                      value={getProviderConfig("OpenRouter").Key}
+                      onChange={(e) => updateProviderConfig("OpenRouter", "Key", e.target.value)}
+                      placeholder="sk-or-v1-...."
+                      className="rounded-xl flex-1 max-w-[80%]"
+                    />
+                    <Button 
+                      onClick={handleSave} disabled={isSaving}
+                      className="w-[20%] min-w-[100px] rounded-xl hover:bg-gray-300"
+                    >
+                      {isSaving ? (
+                        <span className="flex items-center">
+                          Saving
+                        </span>
+                      ) : (
+                        <span className="flex items-center">
+                          <Save className="mr-2 h-4 w-4" />
+                          Save
+                        </span>
+                      )}
+                    </Button>
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     Models are automatically loaded from OpenRouter's API
                   </p>
@@ -265,27 +423,85 @@ export default function SettingsPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="gemini-key">Key</Label>
-                  <Input
-                    id="gemini-key"
-                    type="password"
-                    value={getProviderConfig("Gemini").Key}
-                    onChange={(e) => updateProviderConfig("Gemini", "Key", e.target.value)}
-                    placeholder="AIabc...."
-                  />
+                  <div className="flex space-x-2">
+                    <Input
+                      id="gemini-key"
+                      type="password"
+                      value={getProviderConfig("Gemini").Key}
+                      onChange={(e) => updateProviderConfig("Gemini", "Key", e.target.value)}
+                      placeholder="AIabc...."
+                      className="rounded-xl flex-1 max-w-[80%]"
+                    />
+                    <Button 
+                      onClick={handleSave} disabled={isSaving}
+                      className="w-[20%] min-w-[100px] rounded-xl hover:bg-gray-300"
+                    >
+                      {isSaving ? (
+                        <span className="flex items-center">
+                          Saving
+                        </span>
+                      ) : (
+                        <span className="flex items-center">
+                          <Save className="mr-2 h-4 w-4" />
+                          Save
+                        </span>
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="gemini-models">Models</Label>
-                  <Input
-                    id="gemini-models"
-                    type="text"
-                    value={getProviderConfig("Gemini").Models}
-                    onChange={(e) => updateProviderConfig("Gemini", "Models", e.target.value)}
-                    placeholder="..."
-                  />
+                  <div className="flex space-x-2">
+                    <div className="flex-1 flex space-x-2">
+                      <Input
+                        id="gemini-models"
+                        type="text"
+                        value={geminiModelInput}
+                        onChange={(e) => setGeminiModelInput(e.target.value)}
+                        placeholder="model-name"
+                        className="rounded-xl"
+                      />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button className='rounded-xl hover:bg-gray-300 w-12'
+                                  size="icon"
+                                  disabled={getModelList(getProviderConfig("Gemini").Models).length === 0}
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="flex flex-1 flex-col bottom-full left-0 right-0 w-fit max-h-[400px] bg-[#35373c] rounded-xl shadow-lg border-gray-600 justify-center overflow-hidden">
+                          {getModelList(getProviderConfig("Gemini").Models).map((model) => (
+                            <DropdownMenuItem
+                              key={model}
+                              onClick={() => setGeminiModelInput(model)}
+                              className="flex flex-1 cursor-pointer bg-[#35373c] hover:bg-[#3f4146] overflow-y-auto truncate rounded-xl group w-full px-4 py-2"
+                            >
+                              {model}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    <Button
+                      onClick={() => handleAddModel("Gemini", geminiModelInput)}
+                      size="icon"
+                      className="rounded-xl hover:bg-gray-300 w-12"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      onClick={() => handleRemoveModel("Gemini", geminiModelInput)}
+                      size="icon"
+                      className="rounded-xl hover:bg-gray-300 w-12"
+                      disabled={!geminiModelInput}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Input model names, for multiple models use a coma(,) in between the names, the names should be of format
-                    'model name' eg. (gemini-2.0-flash)
+                    Input model names (e.g. gemini-2.0-flash)
                   </p>
                 </div>
               </div>
@@ -347,11 +563,6 @@ export default function SettingsPage() {
 
       {activeTab === "api-keys" && (
         <div className="mt-6 flex items-center justify-between">
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save Settings"}
-            {!isSaving && <Save className="ml-2 h-4 w-4" />}
-          </Button>
-
           {saveMessage && (
             <p className={`text-sm ${saveMessage.includes("Error") ? "text-destructive" : "text-green-600"}`}>
               {saveMessage}

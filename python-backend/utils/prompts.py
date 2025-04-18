@@ -43,11 +43,12 @@ def base_prompt(query_text: str):
                         
                         Format your response as follows:
                         1. If the question is about math, use LaTeX syntax, use $...$ for inline math and $$...$$ for display math.
-                        2. Use clear, concise, and accurate language.
-                        3. Organize your answer into paragraphs for readability and a clear progression of ideas.
-                        4. Use bullet points or numbered lists where appropriate to break down complex information or present a series of related points.
-                        5. If relevant, include any headings or subheadings to structure your response.
-                        6. Ensure proper grammar, punctuation, and spelling throughout your answer.
+                        2. Try using as little inline math as possible. Explain math equations with display math as much as possible.
+                        3. Use clear, concise, and accurate language.
+                        4. Organize your answer into paragraphs for readability and a clear progression of ideas.
+                        5. Use bullet points or numbered lists where appropriate to break down complex information or present a series of related points.
+                        6. If relevant, include any headings or subheadings to structure your response.
+                        7. Ensure proper grammar, punctuation, and spelling throughout your answer.
                         ''')
         }
     ]

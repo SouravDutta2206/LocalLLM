@@ -22,7 +22,19 @@ export function ChatInput({ input, setInput, isSubmitting, setIsSubmitting }: Ch
   const userMessages = currentChat?.messages.filter(m => m.role === 'user').reverse() ?? [];
 
   const handleSubmit = async (e?: FormEvent) => {
-    if (e) e.preventDefault()
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      // Only allow submissions from the submit button or Enter key press
+      const isEnterKeyPress = e.nativeEvent instanceof KeyboardEvent && e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey
+      const isSubmitButton = e.type === 'submit'
+      
+      if (!isEnterKeyPress && !isSubmitButton) {
+        return
+      }
+    }
+
     if (!input.trim() || isSubmitting) return
 
     const message = input.trim()

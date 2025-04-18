@@ -22,6 +22,49 @@ export function MessageContent({ content, isUser }: MessageContentProps) {
     return <p className="whitespace-pre-wrap break-words">{content}</p>
   }
 
+  // Preprocess content to handle newlines and math properly
+  const preprocessContent = (text: string) => {
+    // Pre-process step: ensure basic spacing around standalone math delimiters
+    text = text
+      .replace(/([^\s$])\$/g, '$1 $') // Add space before $ if not present
+      .replace(/\$([^\s$])/g, '$ $1'); // Add space after $ if not present
+
+    // First preserve all math content by tokenizing it
+    const tokens: string[] = [];
+    const tokenizedText = text.replace(/(\$\$[\s\S]*?\$\$|\$[^\$\n]+?\$)/g, (match) => {
+      // Trim any excess spaces within the math delimiters
+      const trimmedMatch = match.startsWith('$$') 
+        ? match // Don't trim display math
+        : match.replace(/\$ (.*?) \$/g, '$$$1$$'); // Trim inline math
+      tokens.push(trimmedMatch);
+      return `___TOKEN${tokens.length - 1}___`;
+    });
+
+    // Handle newlines and spacing in non-math content
+    const processedText = tokenizedText
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .join('\n\n');
+
+    // Restore math content
+    const finalText = processedText.replace(/___TOKEN(\d+)___/g, (_, index) => {
+      const token = tokens[parseInt(index)];
+      // Add proper spacing around display math
+      if (token.startsWith('$$')) {
+        return `\n\n${token}\n\n`;
+      }
+      // Add minimal spacing around inline math
+      return ` ${token} `;
+    });
+
+    // Clean up any resulting multiple spaces or newlines
+    return finalText
+      .replace(/\s*\n\s*\n\s*/g, '\n\n')
+      .replace(/  +/g, ' ')
+      .trim();
+  };
+
   return (
     <div className="prose prose-invert max-w-none">
       <ReactMarkdown
@@ -102,7 +145,7 @@ export function MessageContent({ content, isUser }: MessageContentProps) {
           }
         }}
       >
-        {content}
+        {preprocessContent(content)}
       </ReactMarkdown>
     </div>
   )

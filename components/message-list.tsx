@@ -22,16 +22,31 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const scrollLockRef = useRef(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
+    // Only auto-scroll if we're loading (streaming) or if we're at the bottom
+    if (messagesEndRef.current && !scrollLockRef.current) {
+      const container = messagesEndRef.current.parentElement
+      if (container) {
+        const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 100
+        if (isLoading || isAtBottom) {
+          messagesEndRef.current.scrollIntoView({ behavior: isLoading ? 'auto' : 'smooth' })
+        }
+      }
     }
-  }, [messages])
+  }, [messages, isLoading])
+
+  // Handle scroll events to determine if user has scrolled up
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const container = e.currentTarget
+    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 100
+    scrollLockRef.current = !isAtBottom
+  }
 
   // Return a simple div with the same structure while not mounted
   if (!mounted) {
@@ -39,7 +54,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
   }
 
   return (
-    <div className="flex-1 p-4 space-y-6 pb-40">
+    <div className="flex-1 p-4 space-y-6 pb-40 overflow-y-auto" onScroll={handleScroll}>
       {messages.length === 0 ? (
         <div className="flex h-full items-center justify-center">
           <div className="text-center space-y-2">
