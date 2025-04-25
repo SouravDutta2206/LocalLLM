@@ -3,6 +3,7 @@
 # dependencies
 /node_modules
 /data
+/python-backend/hf_cache
 
 # next.js
 /.next/

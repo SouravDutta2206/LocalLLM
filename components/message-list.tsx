@@ -17,7 +17,7 @@ interface MessageListProps {
 
 export function MessageList({ messages, isLoading }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const { editAndResendMessage, deleteMessagePair } = useChat()
+  const { editAndResendMessage, deleteMessagePair, currentChat } = useChat()
   const [mounted, setMounted] = useState(false)
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
@@ -28,18 +28,23 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
     setMounted(true)
   }, [])
 
+  // Separate effect for initial scroll
   useEffect(() => {
-    // Only auto-scroll if we're loading (streaming) or if we're at the bottom
-    if (messagesEndRef.current && !scrollLockRef.current) {
-      const container = messagesEndRef.current.parentElement
-      if (container) {
-        const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 100
-        if (isLoading || isAtBottom) {
-          messagesEndRef.current.scrollIntoView({ behavior: isLoading ? 'auto' : 'smooth' })
-        }
-      }
+    if (mounted && messages.length > 0) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }
-  }, [messages, isLoading])
+  }, [mounted, messages.length]);
+
+  // Effect for handling message updates and loading states
+  useEffect(() => {
+    if (!scrollLockRef.current && messagesEndRef.current) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [messages, isLoading]);
 
   // Handle scroll events to determine if user has scrolled up
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -54,7 +59,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
   }
 
   return (
-    <div className="flex-1 p-4 space-y-6 pb-40 overflow-y-auto" onScroll={handleScroll}>
+    <div className="flex-1 p-4 space-y-6 pb-40 pr-0" onScroll={handleScroll}>
       {messages.length === 0 ? (
         <div className="flex h-full items-center justify-center">
           <div className="text-center space-y-2">

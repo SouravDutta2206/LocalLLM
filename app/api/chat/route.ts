@@ -13,6 +13,7 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
+      signal: req.signal, // Forward the abort signal
     })
 
     if (!response.ok) {
@@ -34,6 +35,9 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return new Response('Request aborted', { status: 499 }) // Use 499 status code for client closed request
+    }
     console.error('Error in chat API:', error)
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),

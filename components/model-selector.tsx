@@ -7,60 +7,11 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import Image from 'next/image'
 import { Input } from "@/components/ui/input"
+import { Model, OllamaListResponse, ModelResponse, GroupedModels, LogoProvider } from "@/types/models"
 
-interface Model {
-  name: string
-  provider: string
-}
-
-interface OllamaModel {
-  name: string
-  modified_at: string
-  size: number
-}
-
-interface OllamaListResponse {
-  models: OllamaModel[]
-}
-
-interface OpenRouterModel {
-  id: string;
-}
-
-interface OpenRouterResponse {
-  data: OpenRouterModel[];
-}
-
-interface GeminiModel {
-  id: string;
-}
-
-interface GeminiResponse {
-  data: GeminiModel[];
-}
-
-interface GroupedModels {
-  [provider: string]: Model[]
-}
-
-// Define interface for logo data
-interface LogoProvider {
-  name: string;
-  path: string;
-}
-
-// Helper function to normalize provider names for display
-const formatProviderName = (provider: string) => {
-  if (provider === "Google Gemini") return "Gemini"
-  if (provider === "HuggingFace") return "HuggingFace"
-  if (provider === "Ollama") return "Ollama"
-  if (provider === "OpenRouter") return "OpenRouter"
-  // Add more cases if needed
-  return provider // Default fallback
-};
 
 export function ModelSelector() {
-  const { settings, updateChatSettings } = useChat()
+  const {settings, updateChatSettings } = useChat()
   const [isOpen, setIsOpen] = useState(false)
   const [groupedModels, setGroupedModels] = useState<GroupedModels>({})
   const [selectedModel, setSelectedModel] = useState<string>("")
@@ -163,13 +114,48 @@ export function ModelSelector() {
         console.warn('Failed to fetch OpenRouter models, proceeding without them.')
         return []
       }
-      const data: OpenRouterResponse = await response.json();
+      const data: ModelResponse = await response.json();
       return data.data.map(model => ({
         name: model.id,
         provider: 'OpenRouter'
       }));
     } catch (error) {
       console.error('Error fetching OpenRouter models:', error);
+      return [];
+    }
+  };
+
+  const fetchGroqModels = async (): Promise<Model[]> => {
+
+    const groqProvider = settings.providers.find(p => p.Provider === "Groq");
+    const apiKey = groqProvider?.Key;
+
+    if (!apiKey) {
+      console.warn('No Groq API key found in settings, proceeding without Groq models.');
+      return [];
+    }
+
+    try {
+      const response = await fetch('/api/groq/models', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          api_key: apiKey
+        })
+      });
+      if (!response.ok) {
+        console.warn('Failed to fetch Groq models, proceeding without them.')
+        return []
+      }
+      const data: ModelResponse = await response.json();
+      return data.data.map(model => ({
+        name: model.id,
+        provider: 'Groq'
+      }));
+    } catch (error) {
+      console.error('Error fetching Groq models:', error);
       return [];
     }
   };
@@ -195,12 +181,13 @@ export function ModelSelector() {
         })
       });
 
+
       if (!response.ok) {
         console.warn('Failed to fetch Gemini models, proceeding without them.');
         return [];
       }
 
-      const data: GeminiResponse = await response.json();
+      const data: ModelResponse = await response.json();
       return data.data.map(model => ({
         name: model.id,
         provider: 'Gemini'
@@ -224,13 +211,14 @@ export function ModelSelector() {
         }
       });
 
-      const [ollamaModels, openRouterModels, geminiModels] = await Promise.all([
+      const [ollamaModels, openRouterModels, geminiModels, groqModels] = await Promise.all([
         fetchOllamaModels(),
         fetchOpenRouterModels(),
-        fetchGeminiModels()
+        fetchGeminiModels(),
+        fetchGroqModels()
       ]);
       
-      const allModels = [...settingsModels, ...ollamaModels, ...openRouterModels, ...geminiModels];
+      const allModels = [...settingsModels, ...ollamaModels, ...openRouterModels, ...geminiModels, ...groqModels];
       
       const grouped: GroupedModels = {};
       allModels.forEach(model => {
@@ -321,7 +309,7 @@ export function ModelSelector() {
       {/* Button to show selected model and toggle dropdown */}
       <Button
         variant="ghost"
-        className="flex w-full justify-between px-2 py-1.5 ml-2 mb-1 text-sm text-gray-200 bg-transparent hover:bg-muted/50 rounded-md transition-colors"
+        className="flex w-full justify-between px-2 py-1.5 ml-2 mb-1 text-sm text-gray-200 bg-transparent hover:bg-muted/80 rounded-md transition-colors"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -341,12 +329,18 @@ export function ModelSelector() {
         <div
           className="absolute bottom-full left-0 right-0 ml-2 mb-1 w-[600px] h-[400px] bg-muted text-muted-foreground rounded-xl shadow-lg z-[60] border border-gray-700 flex overflow-hidden"
           onMouseDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+            // Only prevent default if not clicking on an input
+            if (!(e.target instanceof HTMLInputElement)) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
           }}
           onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+            // Only prevent default if not clicking on an input
+            if (!(e.target instanceof HTMLInputElement)) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
           }}
         >
           {/* Left Side: Container for Search + List */}          
@@ -386,6 +380,8 @@ export function ModelSelector() {
                       logoPath = '/huggingface.svg';
                     } else if (lowerProvider.includes('openrouter')) {
                       logoPath = '/openrouter.svg';
+                    } else if (lowerProvider.includes('groq')) {
+                      logoPath = '/groq.svg';
                     } else {
                       logoPath = null;
                     }
@@ -479,6 +475,8 @@ export function ModelSelector() {
                 providerLogoPath = '/huggingface.svg'; // Assuming huggingface.svg exists in public/
               } else if (lowerProvider.includes('openrouter')) {
                 providerLogoPath = '/openrouter.svg'; // Assuming openrouter.svg exists in public/
+              } else if (lowerProvider.includes('groq')) {
+                providerLogoPath = '/groq.svg'; // Assuming groq.svg exists in public/
               }
               // Add more providers here if needed
 

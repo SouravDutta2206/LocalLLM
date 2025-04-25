@@ -32,6 +32,10 @@ interface ChatContextType {
   deleteChatById: (id: string) => Promise<void>
   editAndResendMessage: (messageIdToEdit: string, newContent: string) => Promise<void>
   deleteMessagePair: (messageIdToDelete: string) => Promise<void>
+  stopInference: () => void
+  isGenerating: boolean
+  isSearchMode: boolean
+  setIsSearchMode: (value: boolean) => void
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined)
@@ -41,6 +45,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [currentChat, setCurrentChat] = useState<Chat | null>(null)
   const [settings, setSettings] = useState<Settings>({ providers: [] })
   const [isLoading, setIsLoading] = useState(true)
+  const [abortController, setAbortController] = useState<AbortController | null>(null)
+  const [isSearchMode, setIsSearchMode] = useState(false)
 
   // Load chats and settings on mount
   useEffect(() => {
@@ -196,252 +202,202 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const stopInference = () => {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+    }
+  };
+
   const sendMessage = async (content: string) => {
     // Don't process empty or undefined content
     if (!content || content === "") {
       return;
     }
 
-    if (!currentChat) {
-      const newChat = await createNewChat()
-      const userMessage: Omit<ChatMessage, "id" | "createdAt"> = {
-        role: "user",
-        content,
-      }
+    // Abort any existing inference
+    stopInference();
 
-      const updatedChat = await addMessageToChat(newChat.id, userMessage)
-      if (!updatedChat) {
-        // If message wasn't added (empty/undefined content), delete the new chat
-        await deleteChat(newChat.id)
-        return;
-      }
-      
-      if (updatedChat) {
-        setCurrentChat(updatedChat)
-
-        // Call API to get assistant response
-        try {
-          const { key } = getApiKeyForModel(settings.activeModel || "")
-          const model = settings.activeModel || ""
-          const provider = getProviderForModel(model)
-
-          // Create EventSource for streaming
-          const response = await fetch("/api/chat", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              conversation: updatedChat.messages,
-              model: {
-                name: model,
-                provider: provider,
-                key: key,
-              },
-            }),
-          })
-
-          if (!response.ok) {
-            throw new Error("Failed to get response from API")
-          }
-
-          const reader = response.body?.getReader()
-          const decoder = new TextDecoder()
-
-          if (!reader) {
-            throw new Error("No reader available")
-          }
-
-          let assistantMessage: Omit<ChatMessage, "id" | "createdAt"> = {
-            role: "assistant",
-            content: "",
-            model: model,
-            provider: provider
-          }
-
-          // Create a temporary message object for streaming
-          const tempMessage: ChatMessage = {
-            ...assistantMessage,
-            id: uuidv4(),
-            createdAt: new Date().toISOString()
-          }
-
-          // Add the temporary message to the current chat state
-          const initialMessages = [...updatedChat.messages, tempMessage]
-          const initialChatState = {
-            ...updatedChat,
-            messages: initialMessages
-          }
-          setCurrentChat(initialChatState)
-
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-
-            const chunk = decoder.decode(value)
-            const lines = chunk.split("\n")
-
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                try {
-                  const data = JSON.parse(line.slice(6))
-                  assistantMessage.content += data.content
-                  
-                  // Update the chat with the modified messages array
-                  setCurrentChat(prevChat => {
-                    if (!prevChat) return null;
-                    
-                    const updatedMessages = prevChat.messages.map((msg: ChatMessage) => 
-                      msg.id === tempMessage.id 
-                        ? { ...msg, content: assistantMessage.content }
-                        : msg
-                    );
-
-                    return {
-                      ...prevChat,
-                      messages: updatedMessages,
-                    };
-                  });
-                } catch (e) {
-                  console.error("Error parsing SSE data:", e)
-                }
-              }
-            }
-          }
-
-          // Final update to persist in the database
-          await addMessageToChat(newChat.id, {
-            role: "assistant",
-            content: assistantMessage.content,
-            model: model,
-            provider: provider
-          })
-
-          await loadChats()
-        } catch (error) {
-          console.error("Error getting assistant response:", error)
-        }
-      }
-    } else {
-      const userMessage: Omit<ChatMessage, "id" | "createdAt"> = {
-        role: "user",
-        content,
-      }
-
-      const updatedChat = await addMessageToChat(currentChat.id, userMessage)
-      if (!updatedChat) {
-        // If message wasn't added (empty/undefined content), return early
-        return;
-      }
-      
-      if (updatedChat) {
-        setCurrentChat(updatedChat)
-
-        // Call API to get assistant response
-        try {
-          const { key } = getApiKeyForModel(settings.activeModel || "")
-          const model = settings.activeModel || ""
-          const provider = getProviderForModel(model)
-
-          // Create EventSource for streaming
-          const response = await fetch("/api/chat", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              conversation: updatedChat.messages,
-              model: {
-                name: model,
-                provider: provider,
-                key: key,
-              },
-            }),
-          })
-
-          if (!response.ok) {
-            throw new Error("Failed to get response from API")
-          }
-
-          const reader = response.body?.getReader()
-          const decoder = new TextDecoder()
-
-          if (!reader) {
-            throw new Error("No reader available")
-          }
-
-          let assistantMessage: Omit<ChatMessage, "id" | "createdAt"> = {
-            role: "assistant",
-            content: "",
-            model: model,
-            provider: provider
-          }
-
-          // Create a temporary message object for streaming
-          const tempMessage: ChatMessage = {
-            ...assistantMessage,
-            id: uuidv4(),
-            createdAt: new Date().toISOString()
-          }
-
-          // Add the temporary message to the current chat state
-          const initialMessages = [...updatedChat.messages, tempMessage]
-          const initialChatState = {
-            ...updatedChat,
-            messages: initialMessages
-          }
-          setCurrentChat(initialChatState)
-
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-
-            const chunk = decoder.decode(value)
-            const lines = chunk.split("\n")
-
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                try {
-                  const data = JSON.parse(line.slice(6))
-                  assistantMessage.content += data.content
-                  
-                  // Update the chat with the modified messages array
-                  setCurrentChat(prevChat => {
-                    if (!prevChat) return null;
-                    
-                    const updatedMessages = prevChat.messages.map((msg: ChatMessage) => 
-                      msg.id === tempMessage.id 
-                        ? { ...msg, content: assistantMessage.content }
-                        : msg
-                    );
-
-                    return {
-                      ...prevChat,
-                      messages: updatedMessages,
-                    };
-                  });
-                } catch (e) {
-                  console.error("Error parsing SSE data:", e)
-                }
-              }
-            }
-          }
-
-          // Final update to persist in the database
-          await addMessageToChat(currentChat.id, {
-            role: "assistant",
-            content: assistantMessage.content,
-            model: model,
-            provider: provider
-          })
-
-          await loadChats()
-        } catch (error) {
-          console.error("Error getting assistant response:", error)
-        }
-      }
+    let targetChat = currentChat;
+    let accumulatedContent = "";
+    let model = "";
+    let provider = "";
+    
+    // If no current chat, create a new one
+    if (!targetChat) {
+      const newChat = await createNewChat();
+      targetChat = newChat;
     }
-  }
+
+    if (!targetChat) {
+      console.error("Failed to create or get chat");
+      return;
+    }
+
+    // Add user message
+    const userMessage: Omit<ChatMessage, "id" | "createdAt"> = {
+      role: "user",
+      content,
+    };
+
+    const updatedChat = await addMessageToChat(targetChat.id, userMessage);
+    if (!updatedChat) {
+      // If message wasn't added (empty/undefined content), delete the new chat if it was just created
+      if (!currentChat) {
+        await deleteChat(targetChat.id);
+      }
+      return;
+    }
+
+    setCurrentChat(updatedChat);
+
+    // Call API to get assistant response
+    try {
+      const { key } = getApiKeyForModel(settings.activeModel || "");
+      model = settings.activeModel || "";
+      provider = getProviderForModel(model);
+
+      // Create new abort controller for this request
+      const controller = new AbortController();
+      setAbortController(controller);
+
+      // Create fetch request for streaming
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          conversation: updatedChat.messages,
+          model: {
+            name: model,
+            provider: provider,
+            key: key,
+          },
+          web_search: isSearchMode,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to get response from API");
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error("No reader available");
+      }
+
+      let assistantMessage: Omit<ChatMessage, "id" | "createdAt"> = {
+        role: "assistant",
+        content: "",
+        model: model,
+        provider: provider
+      };
+
+      // Create a temporary message object for streaming
+      const tempMessage: ChatMessage = {
+        ...assistantMessage,
+        id: uuidv4(),
+        createdAt: new Date().toISOString()
+      };
+
+      // Add the temporary message to the current chat state
+      const initialMessages = [...updatedChat.messages, tempMessage];
+      const initialChatState = {
+        ...updatedChat,
+        messages: initialMessages
+      };
+      setCurrentChat(initialChatState);
+
+      let lastUpdateTime = Date.now();
+      const UPDATE_INTERVAL = 100;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              accumulatedContent += data.content;
+              
+              // Only update the UI if enough time has passed
+              const currentTime = Date.now();
+              if (currentTime - lastUpdateTime >= UPDATE_INTERVAL) {
+                setCurrentChat(prevChat => {
+                  if (!prevChat) return null;
+                  
+                  const updatedMessages = prevChat.messages.map((msg: ChatMessage) => 
+                    msg.id === tempMessage.id 
+                      ? { ...msg, content: accumulatedContent }
+                      : msg
+                  );
+
+                  return {
+                    ...prevChat,
+                    messages: updatedMessages,
+                  };
+                });
+                lastUpdateTime = currentTime;
+              }
+            } catch (e) {
+              console.error("Error parsing SSE data:", e);
+            }
+          }
+        }
+      }
+
+      setCurrentChat(prevChat => {
+        if (!prevChat) return null;
+        
+        const updatedMessages = prevChat.messages.map((msg: ChatMessage) => 
+          msg.id === tempMessage.id 
+            ? { ...msg, content: accumulatedContent }
+            : msg
+        );
+
+        return {
+          ...prevChat,
+          messages: updatedMessages,
+        };
+      });
+
+      // Final update to persist in the database
+      await addMessageToChat(targetChat.id, {
+        role: "assistant",
+        content: accumulatedContent,
+        model: model,
+        provider: provider
+      });
+
+      await loadChats();
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('Inference stopped by user');
+        // Save the partial response if there is any
+        if (accumulatedContent && targetChat) {
+          await addMessageToChat(targetChat.id, {
+            role: "assistant",
+            content: accumulatedContent,
+            model: model,
+            provider: provider
+          });
+          await loadChats();
+        }
+      } else {
+        console.error("Error getting assistant response:", error);
+      }
+    } finally {
+      setAbortController(null);
+    }
+  };
 
   // Helper function to get provider name for the current model
   const getProviderForModel = (modelName: string): string => {
@@ -463,6 +419,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         if (providerName === "openrouter") return "openrouter"
         if (providerName === "google gemini") return "gemini"
         if (providerName === "ollama") return "ollama"
+        if (providerName === "groq") return "groq"
       }
     }
 
@@ -594,6 +551,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     deleteChatById,
     editAndResendMessage,
     deleteMessagePair,
+    stopInference,
+    isGenerating: !!abortController,
+    isSearchMode,
+    setIsSearchMode,
   }
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>

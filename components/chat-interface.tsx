@@ -53,7 +53,11 @@ export default function ChatInterface() {
             {!currentChat ? (
               <WelcomeScreen onSentenceClick={handleSentenceClick} />
             ) : (
-              <MessageList messages={currentChat?.messages || []} isLoading={isLoading || isSubmitting} />
+              <MessageList 
+                key={currentChat.id} 
+                messages={currentChat?.messages || []} 
+                isLoading={isLoading || isSubmitting} 
+              />
             )}
           </div>
         </div>

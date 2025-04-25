@@ -2,6 +2,7 @@ import sys
 sys.dont_write_bytecode = True
 
 import re
+from google.genai import types
 
 def prompt_with_context(context: str, query: str):
 
@@ -38,13 +39,12 @@ def base_prompt(query_text: str):
     prompt = [
         {
             "role" : "user",
-            "content" : re.sub(r"[^\S\n]+", " ", f'''You are an AI assistant designed to provide detailed and informative answers to user questions. Your goal is to analyze the question, draw upon your vast knowledge base, and formulate a comprehensive, well-structured response.
-                        User Question: {query_text}
+            "content" : re.sub(r"[^\S\n]+", " ", f'''{query_text}
                         
                         Format your response as follows:
                         1. If the question is about math, use LaTeX syntax, use $...$ for inline math and $$...$$ for display math.
-                        2. Try using as little inline math as possible. Explain math equations with display math as much as possible.
-                        3. Use clear, concise, and accurate language.
+                        2. Follow the $...$ and $$...$$ syntax strictly, do not use any other syntax. like \( ... \) or \[ ... \]
+                        3. For code, use markdown code blocks with the language specified. Ensure proper indentation and formatting.
                         4. Organize your answer into paragraphs for readability and a clear progression of ideas.
                         5. Use bullet points or numbered lists where appropriate to break down complex information or present a series of related points.
                         6. If relevant, include any headings or subheadings to structure your response.
@@ -55,6 +55,29 @@ def base_prompt(query_text: str):
 
     return prompt
 
+def gemini_prompt_format(prompt: list):
+
+    content = []
+
+    for i, message in enumerate(prompt):
+
+        if message.role == "user":
+            content.append(types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_text(text=f"""{message.content}"""),
+                ],
+            ))
+            
+        if message.role == "assistant":
+            content.append(types.Content(
+                role="model",
+                parts=[
+                    types.Part.from_text(text=f"""{message.content}"""),
+                ],
+            ))
+
+    return content
 
 
 

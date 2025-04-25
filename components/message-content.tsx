@@ -8,8 +8,8 @@ import remarkGfm from "remark-gfm"
 import rehypePrismPlus from "rehype-prism-plus"
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
-import "prismjs/themes/prism-tomorrow.css"
 import 'katex/dist/katex.min.css'
+import "prismjs/themes/prism-tomorrow.css"
 import "@/app/globals.css"
 
 interface MessageContentProps {
@@ -22,47 +22,48 @@ export function MessageContent({ content, isUser }: MessageContentProps) {
     return <p className="whitespace-pre-wrap break-words">{content}</p>
   }
 
-  // Preprocess content to handle newlines and math properly
+  // Preprocess content to handle math properly while preserving other formatting
   const preprocessContent = (text: string) => {
-    // Pre-process step: ensure basic spacing around standalone math delimiters
-    text = text
-      .replace(/([^\s$])\$/g, '$1 $') // Add space before $ if not present
-      .replace(/\$([^\s$])/g, '$ $1'); // Add space after $ if not present
-
-    // First preserve all math content by tokenizing it
-    const tokens: string[] = [];
-    const tokenizedText = text.replace(/(\$\$[\s\S]*?\$\$|\$[^\$\n]+?\$)/g, (match) => {
-      // Trim any excess spaces within the math delimiters
-      const trimmedMatch = match.startsWith('$$') 
-        ? match // Don't trim display math
-        : match.replace(/\$ (.*?) \$/g, '$$$1$$'); // Trim inline math
-      tokens.push(trimmedMatch);
-      return `___TOKEN${tokens.length - 1}___`;
+    // 1. Protect code blocks
+    const codeBlocks: string[] = [];
+    let processedText = text.replace(/```[\s\S]*?```|`[^`]+`/g, (match) => {
+      codeBlocks.push(match);
+      return `___CODE${codeBlocks.length - 1}___`;
     });
 
-    // Handle newlines and spacing in non-math content
-    const processedText = tokenizedText
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0)
-      .join('\n\n');
-
-    // Restore math content
-    const finalText = processedText.replace(/___TOKEN(\d+)___/g, (_, index) => {
-      const token = tokens[parseInt(index)];
-      // Add proper spacing around display math
-      if (token.startsWith('$$')) {
-        return `\n\n${token}\n\n`;
-      }
-      // Add minimal spacing around inline math
-      return ` ${token} `;
+    // 2. Handle display math ($$...$$)
+    const displayMath: string[] = [];
+    processedText = processedText.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
+      displayMath.push(`$$${formula.trim()}$$`);
+      return `___DISPLAY_MATH${displayMath.length - 1}___`;
     });
 
-    // Clean up any resulting multiple spaces or newlines
-    return finalText
-      .replace(/\s*\n\s*\n\s*/g, '\n\n')
-      .replace(/  +/g, ' ')
-      .trim();
+    // 3. Handle inline math ($...$ and \(...\)
+    const inlineMath: string[] = [];
+    processedText = processedText.replace(/\$([^$\n]+?)\$|\(\(([^$\n]+?)\)\)/g, (match, formula1, formula2) => {
+      const formula = formula1 || formula2;
+      const delimiter = match.startsWith('$') ? '$' : '\\'; // Determine original delimiter
+      // Reconstruct with original delimiter type
+      inlineMath.push(delimiter === '$' ? `$${formula.trim()}$` : `\\(${formula.trim()}\\)`);
+      return `___INLINE_MATH${inlineMath.length - 1}___`;
+    });
+
+    // 4. Restore display math with proper spacing
+    processedText = processedText.replace(/___DISPLAY_MATH(\d+)___/g, (_, index) => {
+      return `\n\n${displayMath[parseInt(index)]}\n\n`;
+    });
+
+    // 5. Restore inline math
+    processedText = processedText.replace(/___INLINE_MATH(\d+)___/g, (_, index) => {
+      return inlineMath[parseInt(index)];
+    });
+
+    // 6. Restore code blocks
+    processedText = processedText.replace(/___CODE(\d+)___/g, (_, index) => {
+      return codeBlocks[parseInt(index)];
+    });
+
+    return processedText.trim();
   };
 
   return (
@@ -71,7 +72,14 @@ export function MessageContent({ content, isUser }: MessageContentProps) {
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[
           [rehypePrismPlus, { ignoreMissing: true, showLineNumbers: true }],
-          rehypeKatex
+          [rehypeKatex, {
+            strict: true,
+            throwOnError: false,
+            trust: true,
+            macros: {
+              "\\eqref": "\\href{#1}{}",   // Handle equation references
+            }
+          }]
         ]}
         components={{
           pre: ({ node, ...props }) => {

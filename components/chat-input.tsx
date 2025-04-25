@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { ModelSelector } from "@/components/model-selector"
 import { useChat } from "@/context/chat-context"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowUp } from "lucide-react"
+import { ArrowUp, Square, SearchIcon } from "lucide-react"
 
 interface ChatInputProps {
   input: string
@@ -15,7 +15,7 @@ interface ChatInputProps {
 }
 
 export function ChatInput({ input, setInput, isSubmitting, setIsSubmitting }: ChatInputProps) {
-  const { sendMessage, currentChat } = useChat()
+  const { sendMessage, currentChat, stopInference, isGenerating, isSearchMode, setIsSearchMode } = useChat()
   const [historyIndex, setHistoryIndex] = useState<number>(-1)
   const [originalInput, setOriginalInput] = useState<string | null>(null)
 
@@ -107,17 +107,50 @@ export function ChatInput({ input, setInput, isSubmitting, setIsSubmitting }: Ch
                 disabled={isSubmitting}
               />
               <div className="flex items-center justify-between">
-                <div className="max-w-[25%]">
-                  <ModelSelector />
+                <div className="flex items-center justify-between max-w-[25%] gap-1">
+                  <div className="w-full">
+                    <ModelSelector />
+                  </div>
+                  <div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setIsSearchMode(!isSearchMode)}
+                      className={`w-full justify-between px-2 py-1.5 ml-2 mb-1 text-sm rounded-md transition-colors ${
+                        isSearchMode 
+                          ? 'text-muted bg-white hover:bg-white hover:text-muted' 
+                          : 'text-gray-200 bg-transparent hover:bg-muted/80'
+                      }`}
+                    >
+                      <span className="flex items-center">
+                        <SearchIcon className="mr-2 h-4 w-4" />
+                        Web Search
+                      </span>
+                    </Button>
+                  </div>
                 </div>
-                <Button 
-                  type="submit" 
-                  size="icon"
-                  disabled={isSubmitting || !input.trim()}
-                  className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl mr-2 mb-2"
-                >
-                  <ArrowUp/>
-                </Button>
+                <div>
+                      {isGenerating ? (
+                        <Button 
+                          type="button" 
+                        size="icon"
+                        onClick={stopInference}
+                        className="bg-red-600 hover:bg-red-700 text-white rounded-xl"
+                      >
+                        <Square className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button 
+                        type="submit" 
+                        size="icon"
+                        disabled={isSubmitting || !input.trim()}
+                        className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl"
+                      >
+                        <ArrowUp/>
+                      </Button>
+                    )}
+                </div>
               </div>
             </div>
           </div>
